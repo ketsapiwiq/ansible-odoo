@@ -1,0 +1,51 @@
+version: '3'
+services:
+
+  odoo:
+    image: registry.gitlab.com/coopaname/odoo_env:${ODOO_ENV_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      ODOO_SESSION_REDIS: 1
+      ODOO_SESSION_REDIS_HOST: redis
+    ports:
+      - {{odoo_port}}:8069
+      - {{odoo_chat_port }}:8071
+      # debugpy port
+      # - 8888:8888
+    networks:
+      - odoo_prod_docker_net
+    volumes:
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+
+      - ./config:/etc/odoo
+      - ./data_dir:/usr/share/odoo
+{% if odoo_odoo_env_as_volume %}
+      # Uncomment this if you want to develop on these modules without rebuilding the Docker image
+      - ./addons:/mnt/extra-addons
+{% endif %}
+      # Edit this line if you placed the repository at <https://gitlab.com/coopaname/odoo/> somewhere else
+      - ./addons/addons-coopaname:/mnt/extra-addons/addons-coopaname
+{% if odoo_addons_cae_enabled %}
+      - ./addons/addons-cae:/mnt/extra-addons/addons-cae
+{% endif %}
+      # For example:
+      # - ../coopaname-odoo:/mnt/extra-addons/addons-coopaname
+      # Edit this line if you placed the Niboo addons repository somewhere else
+      - ./addons/addons-niboo:/mnt/extra-addons/niboo
+    command: /opt/odoo/odoo-bin --config=/etc/odoo/odoo.conf # --log-level=debug
+    # command: tail -f /dev/null # command to maintain container running while going inside using docker-compose exec or VSCode
+    #command: /opt/odoo/odoo-bin --config=/etc/odoo/odoo.conf --log-level=debug --max-cron-threads=0 # dont start odoo crons
+
+  redis:
+    restart: unless-stopped
+    image: redis
+    volumes:
+       - redis_data:/data
+    networks:
+      - odoo_prod_docker_net
+
+volumes:
+  redis_data:
+networks:
+  odoo_prod_docker_net:

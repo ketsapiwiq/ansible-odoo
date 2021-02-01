@@ -1,0 +1,11 @@
+# Méthode de Point-in-time recovery:  on demande au rôle barman_restore de nous fournir le dump le plus récent
+- name: Generate a barman dump
+  include_role:
+    name: barman_restore
+    apply:
+      delegate_facts: yes
+      delegate_to: "{{ barman_restore_source_host }}"
+      vars:
+      - barman_restore_pitr_date: "immediate"
+  tags:
+  - dump_database

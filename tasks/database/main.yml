@@ -1,0 +1,44 @@
+# TODO: By default do nothing, if db not there, then try db_copy, then try barman_restore
+# TODO: If bleeding edge latest db is not required, just fetch the file called latest.pgc on db-backups
+# TODO: Checks on db even when not restoring
+# TODO: Ensure postgres connection is OK
+# TODO: Mettre des lockfiles pour pas que plusieurs playbooks disruptent les trucs
+# TODO: Add lockfile on db ops to keep container from being started meanwhile
+# TODO: Make a copy of db before restarting Odoo when mise en prod?
+
+- include_vars: ../host_vars/{{ odoo_db_ansible_host }}.yml
+
+- name: Generate a dump
+  import_tasks:
+    file: gen_dump.yml
+  when:
+  - odoo_db_restore == True
+  - odoo_db_generate_dump == True
+
+- name: Pull dump
+  import_tasks: pull_dump.yml
+  when:
+  - odoo_db_restore == True
+  - odoo_db_pull_dump == True or odoo_db_generate_dump == True
+
+- name: Import a dump
+  import_tasks: import_dump.yml
+  when:
+  - odoo_db_restore == True
+  - odoo_db_pull_dump == True or odoo_db_generate_dump == True
+
+- name: Restore a copy of the db from a previous duplicated DB
+  import_tasks: replace_db.yml
+  become: yes
+  when:
+  - odoo_db_restore == True
+ 
+#  TODO: test it from odoo
+- name: Test connection to database
+  delegate_to: "{{ odoo_db_ansible_host }}"
+  postgresql_query:
+    query: SELECT version()
+    db: "{{ odoo_db_name }}"
+    login_user: "{{ odoo_db_user }}"
+    port: "{{ postgresql_port }}"
+  become: yes

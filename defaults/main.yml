@@ -1,0 +1,100 @@
+# General
+odoo_project_path: /odoo_ci
+odoo_filestore_path: "{{ odoo_project_path }}/data_dir/filestore"
+odoo_domain: ~
+odoo_letsencrypt_email: ~
+odoo_port: 8069
+odoo_chat_port: 8071
+
+# For CI
+odoo_odoo_env_as_volume: no
+
+# DB
+odoo_db_host: ~
+odoo_db_port: 5432
+odoo_db_name: coopaname_odoo
+odoo_db_user: "{{ odoo_db_name }}"
+odoo_db_password: ~
+
+# For db restoring
+# Trois méthodes :
+# juste odoo_db_restore: juste switcher la base en cours d'utilisation avec un dump déjà importé (suffixé _imported_dump)
+# odoo_db_generate_dump à yes : demander à barman / au serveur db_backups un dump tout frais à la date barman_restore_pitr_date (immediate : la base de prod actuelle), et l'importer comme base actuelle (implique odoo_db_pull_dump==True )
+# odoo_db_pull_dump: récupérer depuis le serveur db_backups le dernier dump existant et l'importer comme base actuelle
+# Don't restore anything by default
+odoo_db_restore: no
+odoo_db_pull_dump: yes
+odoo_db_generate_dump: no
+
+odoo_db_ansible_host: ~
+barman_restore_pitr_date: immediate
+barman_restore_source_host: "db_backup"
+barman_restore_source_db: coo_production
+barman_restore_target_push_dump: "/root/odoo_prod_latest.pgc"
+barman_restore_source_ssh_host: barman@{{ hostvars[barman_restore_source_host]['public_ip'] }}
+
+# Config
+odoo_debug: no
+
+# Gestion sociale addons
+odoo_addons_cae_enabled: no
+
+# Coopaname Addons
+odoo_coopaname_addons_gitlab_token_username: odoo_prod
+odoo_coopaname_addons_gitlab_token_secret: "{{ secret_odoo_gitlab_token_secret }}"
+odoo_coopaname_addons_repo_address: gitlab.com/coopaname/odoo.git
+odoo_coopaname_addons_repo_version: main
+odoo_coopaname_addons_path: "{{ odoo_project_path }}/addons/addons-coopaname"
+# Reapply edits only in test env
+odoo_coopaname_addons_stash: no
+
+# Niboo Addons
+odoo_niboo_addons_path: "{{ odoo_project_path }}/addons/addons-niboo"
+# ~ is a null string, we want undefined ones
+# odoo_niboo_addons_gitlab_token_username: ~
+# odoo_niboo_addons_gitlab_token_secret:  "~"
+# odoo_niboo_addons_gitlab_token_secret:  "{{ secret_niboo_addons_gitlab_token_secret }}"
+# odoo_niboo_addons_repo_address: ~
+
+# Odoo_env repo
+odoo_env_gitlab_token_username: odoo_prod
+odoo_env_gitlab_token_secret: "{{ secret_odoo_env_gitlab_token_secret }}"
+odoo_env_repo_address: gitlab.com/coopaname/odoo_env.git
+odoo_env_repo_version: main
+
+# Odoo_env registry
+odoo_registry_url: registry.gitlab.com/coopaname
+odoo_registry_image: "{{ odoo_registry_url }}/odoo_env"
+odoo_registry_image_version: "{{ 'latest' if odoo_env_repo_version == 'main' else odoo_env_repo_version }}"
+
+# Filestore restoring
+odoo_filestore_restore: no
+odoo_filestore_dest_host: ~
+odoo_filestore_dest_ssh_host: ~ 
+odoo_filestore_dest_path: "{{ odoo_filestore_path }}"
+odoo_filestore_most_recent_host: odoo_prod
+# odoo_filestore_most_recent_path: "{{ odoo_filestore_path }}/data_dir/filestore"
+odoo_filestore_most_recent_path: ~
+
+# Sessions
+odoo_sessions_path: "{{ odoo_project_path }}/data_dir/sessions"
+# Consider putting this to yes
+odoo_purge_sessions: no
+
+# Mails
+odoo_remove_mailservers: no
+
+# Users
+odoo_change_admin_password: no
+
+# Modules
+odoo_init_modules: []
+odoo_update_all_modules: no
+
+# Addons
+odoo_niboo_addons_rsync: no
+odoo_niboo_addons_source_host: odoo_staging
+
+# UUID
+odoo_random_uuid: no
+odoo_niboo_addons_source_path: /odoo_ci/addons/addons-niboo

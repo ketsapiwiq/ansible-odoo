@@ -1,0 +1,102 @@
+- include_vars: ../host_vars/{{ odoo_db_ansible_host }}.yml
+
+- name: "Ensure {{odoo_db_name}} exists before deleting {{odoo_db_name}}_backup"
+  postgresql_db:
+    state: present
+    name: "{{ odoo_db_name }}"
+    port: "{{ postgresql_port }}"
+  check_mode: true
+  register: odoo_db_name_exists
+  ignore_errors: yes
+  failed_when: odoo_db_name_exists.changed
+  become: yes
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"
+  tags:
+  - restore_database
+
+- debug:
+    var: "{{ odoo_db_name_exists }}"
+
+- name: "Delete {{ odoo_db_name }}_backup"
+  postgresql_db:
+    state: absent
+    name: "{{ odoo_db_name }}_backup"
+    port: "{{postgresql_port}}"
+  become: yes
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  when:
+  - ansible_check_mode or not odoo_db_name_exists.failed
+  tags:
+  - restore_database
+
+- name: Stop Odoo
+  docker_compose:
+    stopped: yes
+    state: present
+    timeout: 600
+    project_src: "{{ odoo_project_path }}"
+  register: odoo_docker_state
+#   ignore_errors: yes
+  become: yes
+
+# If this is not enough, needs `REVOKE CONNECT ON DATABASE dbname FROM PUBLIC, username;` (pgadmin, what else?)
+- name: "Kill connections to {{ odoo_db_name }}"
+  postgresql_query:
+    query: "SELECT 
+                pg_terminate_backend(pid) 
+            FROM 
+                pg_stat_activity 
+            WHERE 
+                pid <> pg_backend_pid()
+                AND datname = '{{ odoo_db_name }}'
+                ;"
+    login_user: "{{ odoo_db_user }}"
+    port: "{{postgresql_port}}"
+#   ignore_errors: yes
+  when: not odoo_db_name_exists.failed
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"
+  become: yes
+
+
+- name: "rename current database {{ odoo_db_name }} to {{ odoo_db_name }}_backup"
+  postgresql_query:
+    query: "ALTER DATABASE {{odoo_db_name }} RENAME TO {{ odoo_db_name }}_backup;"
+    # login_user: "{{ odoo_db_user }}"
+    login_user: "postgres"
+    port: "{{postgresql_port}}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  when: not odoo_db_name_exists.failed
+  register: rename_database
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"
+#   failed_when: "'existe pas' not in rename_database.stderr and rename_database.rc != 0"
+  tags:
+  - restore_database
+  - rename_database
+  - delete_old_db
+  become: yes
+
+- name: "Copy database {{ odoo_db_name }}_imported_dump to {{ odoo_db_name }}"
+  postgresql_db:
+    name: "{{ odoo_db_name }}"
+    template: "{{ odoo_db_name }}_imported_dump"
+    port: "{{postgresql_port}}"
+    owner: "{{ odoo_db_user }}"
+  tags:
+  - restore_database
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"
+  become: yes
+
+# - name: Restart Odoo if it was started
+#   docker_compose:
+#     stopped: yes
+#     state: present
+#     timeout: 600
+#     project_src: "{{ odoo_project_path }}"
+#   when: odoo_docker_state.changed
+#   become: yes

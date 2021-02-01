@@ -1,0 +1,58 @@
+
+# MAILSERVERS
+
+- include_vars: ../host_vars/{{ odoo_db_ansible_host }}.yml
+  tags: ["odoo_remove_mailservers"]
+  when: odoo_remove_mailservers
+
+- name: Remove odoo mail server to disable mail sending
+  delegate_to: "{{ odoo_db_ansible_host }}"
+  postgresql_query:
+    query: |
+      DELETE FROM ir_mail_server WHERE name != 'localhost';
+      DELETE FROM fetchmail_server;
+    db: "{{odoo_db_name}}"
+    login_user: postgres
+    port: "{{postgresql_port}}"
+  # ignore_errors: yes
+  tags: ["odoo_remove_mailservers"]
+  when:
+    - odoo_remove_mailservers
+    - not ansible_check_mode
+  become: yes
+
+
+# USERS
+  
+
+# TODO: In non-prod, change password of all users?
+- name: Change Odoo admin password
+  delegate_to: "{{ odoo_db_ansible_host }}"
+  postgresql_query:
+#   requires passlib, not installed in awx_task's ansible virtualenv
+    query: "UPDATE res_users SET password='{{ secret_odoo_admin_password | password_hash('pbkdf2_sha512', 65534 | random(seed=inventory_hostname) | string) }}' WHERE login='admin';"
+    db: "{{odoo_db_name}}"
+    login_user: postgres
+    port: "{{ postgresql_port }}"
+  no_log: yes
+  tags: ["odoo_change_admin_password"]
+  when:
+    - odoo_change_admin_password
+    - not ansible_check_mode
+  become: yes
+
+
+# UUID
+
+- name: Change UUID if enabled
+  delegate_to: "{{ odoo_db_ansible_host }}"
+  postgresql_query:
+    query: UPDATE ir_config_parameter SET value = '{{ 1000000000 | random | to_uuid }}' WHERE key = 'database.uuid';
+    db: "{{ odoo_db_name }}"
+    login_user: postgres
+    port: "{{ postgresql_port }}"
+  when: odoo_random_uuid is defined and odoo_random_uuid | bool == True
+  tags: odoo_random_uuid
+  become: yes
+#  TODO: add handler so that odoo reboots when uuid changes
+

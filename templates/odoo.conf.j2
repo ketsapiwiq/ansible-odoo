@@ -1,0 +1,169 @@
+[options]
+
+data_dir = /usr/share/odoo
+
+db_host = {{ odoo_db_host | default("10.0.0.4") }}
+db_port = {{ odoo_db_port | default("5432") }}
+db_name = {{ odoo_db_name | default("coo_production")}}
+db_user = {{ odoo_db_user }}
+
+db_password = {{ secret_odoo_db_password }}
+
+;dbfilter = .*
+
+addons_path:
+# careful: these two paths are very similar
+    /opt/odoo/addons,
+    /opt/odoo/odoo/addons,
+    /mnt/extra-addons/enterprise,
+    /mnt/extra-addons/niboo/niboo-internal,
+    /mnt/extra-addons/niboo/niboo-community,
+    /mnt/extra-addons/niboo/paid-community,
+    /mnt/extra-addons/OCA/account-reconcile,
+    /mnt/extra-addons/OCA/account-analytic,
+    /mnt/extra-addons/OCA/account-financial-tools,
+    /mnt/extra-addons/OCA/bank-payment,
+    /mnt/extra-addons/OCA/event,
+    /mnt/extra-addons/OCA/hr,
+    /mnt/extra-addons/OCA/l10n-france,
+    /mnt/extra-addons/OCA/partner-contact,
+    /mnt/extra-addons/OCA/queue,
+    /mnt/extra-addons/OCA/social,
+    /mnt/extra-addons/OCA/server-tools,
+    /mnt/extra-addons/OCA/server-ux,
+    /mnt/extra-addons/OCA/timesheet,
+    /mnt/extra-addons/OCA/web,
+    /mnt/extra-addons/addons-coopaname,
+{% if odoo_addons_cae_enabled %}
+    /mnt/extra-addons/addons-cae,
+{% endif %}
+
+server_wide_modules = web,queue_job
+# Says needed in the doc but works without
+# server_wide_modules = web,queue_job,sentry
+
+# data_dir = /opt/local/odoo/.local/share/Odoo
+
+
+# set list_db option to False, to block access to <url>/web/database/manager utility (the database selection and management screens)
+# https://www.odoo.com/documentation/12.0/setup/deploy.html#builtin-server
+list_db = False
+# master password for <url>/web/database/manager utility (if enabled)
+# Should be hashed and/or from env vars
+# Set it again from the web interface (./web/database/manager) to set a hashed and salted admin password (like $pbkdf2-sha512$25000$SwkBA...)
+admin_passwd = {{ secret_odoo_web_db_manager_password }}
+
+
+# Following formula from https://github.com/odoo/technical-training/tree/12.0-99-sysadmin#add-workers
+# num_of_workers = (num_of_cpus * 2 ) + 1
+# Niboo has 6 workers per replicat with 3 replicats
+workers = 17
+
+# per worker max db connection
+db_maxconn = 12
+# niboo : db_maxconn = 32 -> this db_maxconn is too damn high
+
+
+limit_memory_hard = 5368709120
+limit_memory_soft = 4294967296
+# too damn high but trying anyway
+limit_request = 8192
+# too damn high but trying anyway
+limit_time_cpu = 1200
+
+# timeout for request in web interface
+limit_time_real = 1200
+
+demo = {}
+
+;email_from = False
+
+import_partial =
+
+csv_internal_sep = ,
+
+
+{% if odoo_debug == True %}
+# Max debug logs
+
+debug_mode = True
+
+log_db = True
+log_db_level = debug
+log_handler = :DEBUG
+log_level = debug
+{% else %}
+# Prod config
+debug_mode = False
+
+log_db = False
+log_db_level = warning
+log_handler = :INFO
+log_level = info
+{% endif %}
+
+logfile = /var/log/odoo/odoo.log
+logrotate = True
+
+# Don't syslog and use docker's logging driver instead
+syslog = False
+
+longpolling_port = 8071
+
+# un seul thread chez niboo mais 3 réplicats d'odoo
+max_cron_threads = 2
+
+osv_memory_age_limit = 1.0
+osv_memory_count_limit = False
+
+;pg_path = None
+;pidfile = None
+
+# Very important for nginx
+proxy_mode = True
+
+;reportgz = False
+
+smtp_password = False
+smtp_port = 25
+smtp_server = localhost
+smtp_ssl = False
+smtp_user = False
+
+test_commit = False
+test_enable = False
+test_file = False
+test_report_directory = False
+
+geoip_database = /usr/share/GeoIP/GeoLiteCity.dat
+translate_modules = ['all']
+unaccent = False
+
+# Can probably safely set to True
+without_demo = False
+
+xmlrpc = True
+# An empty string = all interfaces
+xmlrpc_interface =
+xmlrpc_port = 8069
+
+
+sentry_dsn = {{ secret_odoo_sentry_dsn }}
+sentry_enabled = true
+sentry_logging_level = warn
+# sentry_exclude_loggers =
+sentry_exclude_loggers = werkzeug
+# sentry_ignore_exceptions = odoo.exceptions.AccessDenied,odoo.exceptions.AccessError,odoo.exceptions.MissingError,odoo.exceptions.RedirectWarning,odoo.exceptions.UserError,odoo.exceptions.ValidationError,odoo.exceptions.Warning,odoo.exceptions.except_orm
+sentry_processors = raven.processors.SanitizePasswordsProcessor,odoo.addons.sentry.logutils.SanitizeOdooCookiesProcessor
+sentry_transport = threaded
+sentry_include_context = true
+sentry_environment = {{ inventory_hostname }}
+# sentry_auto_log_stacks = false
+# sentry_odoo_dir = /opt/odoo/odoo/
+# sentry_odoo_dir = /opt/odoo/
+
+# root:1 is the default value
+# https://apps.odoo.com/apps/modules/10.0/queue_job/
+# [queue_job]
+# channels = root:1
+# Careful! this being an INI file, everything you write here will be a child of [queue_job]

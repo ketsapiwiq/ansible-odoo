@@ -1,0 +1,64 @@
+- include_vars: ../host_vars/{{ odoo_db_ansible_host }}.yml
+
+- name: "Delete older db {{ odoo_db_name }}_imported_dump"
+  postgresql_db:
+    state: absent
+    name: "{{ odoo_db_name }}_imported_dump"
+    port: "{{postgresql_port}}"
+  become: yes
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"
+  tags:
+  - delete_old_imported_dump_db
+
+- name: "Recreate db {{ odoo_db_name }}_imported_dump"
+  postgresql_db:
+    name: "{{ odoo_db_name }}_imported_dump"
+    encoding: UTF-8
+    lc_collate: fr_FR.UTF-8
+    lc_ctype: fr_FR.UTF-8
+    state: present
+    port: "{{postgresql_port}}"
+    owner: "{{ odoo_db_user }}"
+  become: yes
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"
+  tags: import_dump
+
+- name: "Restore latest version of db to {{ odoo_db_name }}_imported_dump"
+  async: 3600 # wait for completion 30min
+  poll: 15 # poll for completion every 15s
+  # ne pas utiliser le module community.general.postgresql_db : restauration parallelise n'est pas supportee a partir de stdin
+  # we could want --exit-on-error here
+  command: "pg_restore --port={{ postgresql_port }} --verbose --jobs=8 --username={{ odoo_db_user }} --dbname={{ odoo_db_name }}_imported_dump {{ barman_restore_target_push_dump }}"
+  register: pg_restore_output
+  when: not ansible_check_mode
+  become: yes
+  tags: import_dump
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"
+
+- name: Create pg_restore log folder
+  file:
+    path: "/var/log/pg_restore/"
+    state: directory
+  tags: import_dump
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"
+
+- name: Log pg_restore output log
+  copy:
+    content: "{{ pg_restore_output.stderr }}"
+    dest: "/var/log/pg_restore/{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log"
+  ignore_errors: "{{ ansible_check_mode}}"
+  tags: import_dump
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"
+
+- name: Delete {{ barman_restore_target_push_dump }} file
+  file:
+    path: "{{ barman_restore_target_push_dump }}"
+    state: absent
+  tags: delete_dump_file
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"

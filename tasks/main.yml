@@ -1,0 +1,310 @@
+# SYSTEM
+
+- name: Ensure git package is present
+  apt:
+    name: git
+    state: present
+
+- name: Add Odoo group
+  group:
+    name: odoo
+    system: yes
+    state: present
+    gid: 10001
+  tags:
+    - odoo_user
+    - odoo_install
+
+- name: Add Odoo user
+  user:
+    name: odoo
+    group: odoo
+    create_home: no
+    system: yes
+    state: present
+    uid: 10001
+  tags:
+    - odoo_user
+    - odoo_install
+
+
+# CODE
+
+# this code is suppposed to be in the image but we could need this for example for sentry codebase tracking feature
+- name: Ensure Coopaname Odoo code (odoo_env) present and up to date
+  git:
+    dest: "{{ odoo_project_path }}"
+    repo: https://{{ odoo_env_gitlab_token_username }}:{{ odoo_env_gitlab_token_secret }}@{{ odoo_env_repo_address }}
+    version: "{{ odoo_env_repo_version }}"
+    update: yes
+    clone: yes
+    force: no
+  when: odoo_odoo_env_as_volume
+  tags:
+    - odoo_install
+    - odoo_git
+    - odoo_download_template
+
+- name: Ensure Coopaname Odoo directories are present
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: odoo
+    group: odoo
+  loop:
+    - "{{ odoo_project_path }}"
+    - "{{ odoo_project_path }}/config"
+    - "{{ odoo_project_path }}/data_dir"
+    - "{{ odoo_project_path }}/addons"
+  tags:
+    - odoo_install
+    - odoo_download_template
+
+
+# ADDONS
+
+- name: Get Coopaname addons code diffs since last git commit
+  command:
+    cmd: git status --porcelain
+    chdir: "{{ odoo_coopaname_addons_path }}"
+  register: odoo_coopaname_addons_git
+  become: yes
+  changed_when: odoo_coopaname_addons_git.stdout_lines | length > 0
+  failed_when: odoo_coopaname_addons_git.stdout_lines | length > 0
+  ignore_errors: yes
+  check_mode: false
+  tags: odoo_git
+
+- name: Print Coopaname addons code diffs since last git commit
+  debug:
+    msg: "{{ odoo_coopaname_addons_git.stdout_lines }}"
+
+# Stash changes on test_compta then reapply them on top
+- name: Stash changes when required in Coopaname addons code
+  command:
+    cmd: 'git stash push --all --message "Automatic stash by Ansible"'
+    chdir: "{{ odoo_coopaname_addons_path }}"
+  when: odoo_coopaname_addons_stash
+
+- name: Ensure Odoo addons for Coopaname code present and up to date
+  git:
+    dest: "{{ odoo_coopaname_addons_path }}"
+    repo: https://{{ odoo_coopaname_addons_gitlab_token_username }}:{{ odoo_coopaname_addons_gitlab_token_secret }}@{{ odoo_coopaname_addons_repo_address }}
+    version: "{{ odoo_coopaname_addons_repo_version }}"
+    # update: no
+    update: yes
+    clone: yes
+    # TODO: Variabilize force:yes or no and can_fail
+    force: no
+#   ignore_errors: yes
+  become: yes
+  tags: odoo_install,odoo_git,odoo_install_coopaname_addons
+
+- name: Pop changes from stash when required
+  command:
+    cmd: git stash pop
+    chdir: "{{ odoo_coopaname_addons_path }}"
+  when: odoo_coopaname_addons_stash
+
+- name: Ensure Odoo addons for CAE code present and up to date
+  git:
+    dest: "{{ odoo_project_path }}/addons/addons-cae"
+    repo: https://{{ odoo_coopaname_addons_gitlab_token_username }}:{{ odoo_coopaname_addons_gitlab_token_secret }}@gitlab.com/coopaname/odoo-cae-hr.git
+    # version: "12.0"
+    # update: no
+    update: yes
+    clone: yes
+    force: no
+  become: yes
+  tags: odoo_install,odoo_git,odoo_install_coopaname_addons,odoo_install_addons_cae
+  when: odoo_addons_cae_enabled is defined and odoo_addons_cae_enabled == True
+
+- name: "Import Niboo addons tasks: copy from existing install"
+  import_tasks: niboo.yml
+  become: yes
+  tags:
+    - odoo_install
+    - odoo_addons
+    - odoo_niboo_addons
+
+- name: Ensure Odoo code belongs to odoo user and group
+  file:
+    state: directory
+    path: "{{ odoo_project_path }}"
+    recurse: yes
+    owner: odoo
+    group: odoo
+    mode: "u=rwX,g=rX,o=rX"
+  become: yes
+  tags:
+    - odoo_install
+
+
+# CONFIG
+
+- name: Configure odoo docker-compose installation
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ odoo_project_path }}/docker-compose.yml" # required. Location to render the template to on the remote machine.
+  become: yes
+  # notify: Recreate Odoo
+  tags:
+    - odoo_install
+    - odoo_docker_compose
+    - odoo_config
+
+- name: Configure odoo docker-compose donothing extension
+  template:
+    src: docker-compose.donothing.yml.j2
+    dest: "{{ odoo_project_path }}/docker-compose.donothing.yml"
+  become: yes
+  # notify: Recreate Odoo
+  tags:
+    - odoo_install
+    - odoo_docker_compose
+    - odoo_config
+
+- name: Replace vars in Odoo config template
+  template:
+    src: odoo.conf.j2
+    dest: "{{ odoo_project_path }}/config/odoo.conf" 
+  become: yes
+  # notify: Restart Odoo
+  tags:
+    - odoo_config
+    - odoo_install
+
+
+# IMAGE
+
+- name: Log into Container registry
+  docker_login:
+    registry_url: "{{ odoo_registry_url }}"
+    username: "{{ odoo_env_gitlab_token_username }}"
+    password: "{{ secret_odoo_env_gitlab_token_secret }}"
+  become: yes
+  tags:
+    - odoo_install
+
+- name: Pull latest docker image from Container registry
+  docker_image:
+    name: "{{ odoo_registry_image }}:{{ odoo_registry_image_version }}"
+    source: pull
+  become: yes
+  tags:
+    - odoo_install
+
+# - name: Stop Odoo container
+#   docker_compose:
+#     timeout: 600
+#     stopped: yes
+#     project_src: "{{ odoo_project_path }}"
+#   become: yes
+#   tags:
+#     - odoo_stop
+#   when:
+#     - not ansible_check_mode
+
+
+# DB
+
+- name: Import database tasks
+  import_tasks: database/main.yml
+  become: yes
+  tags:
+    - odoo_install
+    - odoo_db_copy_restore
+
+# FILESTORE
+
+- name: Import filestore tasks (only copy latest version when adequate var odoo_filestore_restore is set to yes)
+  import_tasks: filestore.yml
+  become: yes
+  tags:
+    - odoo_install
+    - odoo_filestore
+
+# DB TWEAKS: delete mailserver, change uuid, change admin password
+
+- name: Import db tweaks tasks (delete mailserver, change uuid, change admin password...)
+  import_tasks: db_tweaks.yml
+  become: yes
+  tags:
+    - odoo_install
+    - odoo_db_tweaks
+    - odoo_change_admin_password
+    - odoo_remove_mailservers
+    - odoo_random_uuid
+
+
+# SESSIONS
+
+# TODO: Purge sessions or sync them from prod?
+# TODO: Will need to adapt this when using Redis sessions
+- name: Delete Odoo sessions folder
+  file:
+    state: absent
+    path: "{{ odoo_sessions_path }}"
+  become: yes
+  diff: false
+  when: odoo_purge_sessions is defined and odoo_purge_sessions == True
+  tags: odoo_purge_sessions
+
+- name: Recreate Odoo sessions folder
+  file:
+    state: directory
+    path: "{{ odoo_sessions_path }}"
+    owner: odoo
+    group: odoo
+  become: yes
+  when: odoo_purge_sessions is defined and odoo_purge_sessions == True
+  tags: odoo_purge_sessions
+
+
+# MODULES
+
+- name: Import modules tasks
+  import_tasks: modules.yml
+  become: yes
+  tags:
+    - odoo_install
+    - odoo_modules
+
+
+# TODO: Ajout de healthcheck et rollback si pb ?
+
+# - name: Check if nginx-proxy is healthy
+#   docker_container_info:
+#     name: nginx-proxy
+#   register: result
+
+# - name: Print information about container nginx-proxy
+#   debug:
+#     var: result.container.State.Health.Status == "healthy"
+#   when: result.exists
+# CONTAINERS
+
+# TODO: Handle this differently with handlers and conditions
+# - name: Start (recreate) Odoo container
+- name: Start Odoo container
+  docker_compose:
+    # recreate: always
+    timeout: 600
+    state: present
+    remove_orphans: yes
+    project_src: "{{ odoo_project_path }}"
+  # Specify $ODOO_ENV_BRANCH to use another image than latest
+  #     image: registry.gitlab.com/coopaname/odoo_env:${ODOO_ENV_BRANCH:-latest}
+  become: yes
+  register: odoo_docker_compose
+  environment:
+    # ODOO_ENV_VERSION: "{{ 'latest' if odoo_env_repo_version == 'main' else odoo_env_repo_version }}"
+    ODOO_ENV_VERSION: "{{ odoo_registry_image_version }}"
+  tags:
+    - odoo_start
+    - odoo_modules
+  when:
+    - not ansible_check_mode
+# TODO: Add `docker container prune` and `docker image prune`?
+
+
