@@ -91,3 +91,6 @@ odoo_update_all_modules: no
 
 # UUID
 odoo_random_uuid: no
+
+# Don't call home
+odoo_call_home: no

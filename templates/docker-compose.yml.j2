@@ -14,6 +14,11 @@ services:
       # - 8888:8888
     networks:
       - odoo_prod_docker_net
+{% if not odoo_call_home %}
+    extra_hosts:
+      - "services.openerp.com:127.0.0.1"
+{% endif %}
+
     volumes:
       - "/etc/timezone:/etc/timezone:ro"
       - "/etc/localtime:/etc/localtime:ro"
@@ -33,6 +38,7 @@ services:
       # - ../coopaname-odoo:/mnt/extra-addons/addons-coopaname
       # Edit this line if you placed the Niboo addons repository somewhere else
       - ./addons/addons-niboo:/mnt/extra-addons/niboo
+      
     command: /opt/odoo/odoo-bin --config=/etc/odoo/odoo.conf # --log-level=debug
     # command: tail -f /dev/null # command to maintain container running while going inside using docker-compose exec or VSCode
     #command: /opt/odoo/odoo-bin --config=/etc/odoo/odoo.conf --log-level=debug --max-cron-threads=0 # dont start odoo crons
