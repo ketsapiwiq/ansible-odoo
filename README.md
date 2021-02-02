@@ -1,7 +1,7 @@
 # Role Odoo pour Coopaname
 
 ## Pour la restauration de base de données
-Se fait avec la variable `odoo_db_restore_method` et `odoo_db_restore: yes`.
+Se fait avec les variables `odoo_db_generate_dump`, `odoo_db_pull_dump`  et `odoo_db_restore: yes`.
 
 ### Trois méthodes
 - juste `odoo_db_restore`: juste switcher la base en cours d'utilisation avec un dump déjà importé (suffixé `_imported_dump`)
