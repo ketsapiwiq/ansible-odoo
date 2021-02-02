@@ -50,11 +50,9 @@ odoo_coopaname_addons_stash: no
 
 # Niboo Addons
 odoo_niboo_addons_path: "{{ odoo_project_path }}/addons/addons-niboo"
-# ~ is a null string, we want undefined ones
-# odoo_niboo_addons_gitlab_token_username: ~
-# odoo_niboo_addons_gitlab_token_secret:  "~"
-# odoo_niboo_addons_gitlab_token_secret:  "{{ secret_niboo_addons_gitlab_token_secret }}"
-# odoo_niboo_addons_repo_address: ~
+odoo_niboo_addons_rsync: no
+odoo_niboo_addons_source_host: odoo_staging
+odoo_niboo_addons_source_path: /odoo_ci/addons/addons-niboo
 
 # Odoo_env repo
 odoo_env_gitlab_token_username: odoo_prod
@@ -91,10 +89,5 @@ odoo_change_admin_password: no
 odoo_init_modules: []
 odoo_update_all_modules: no
 
-# Addons
-odoo_niboo_addons_rsync: no
-odoo_niboo_addons_source_host: odoo_staging
-
 # UUID
 odoo_random_uuid: no
-odoo_niboo_addons_source_path: /odoo_ci/addons/addons-niboo
