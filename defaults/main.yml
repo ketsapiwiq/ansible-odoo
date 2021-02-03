@@ -74,6 +74,9 @@ odoo_filestore_most_recent_host: odoo_prod
 # odoo_filestore_most_recent_path: "{{ odoo_filestore_path }}/data_dir/filestore"
 odoo_filestore_most_recent_path: ~
 
+# Assets
+odoo_purge_assets: no
+
 # Sessions
 odoo_sessions_path: "{{ odoo_project_path }}/data_dir/sessions"
 # Consider putting this to yes

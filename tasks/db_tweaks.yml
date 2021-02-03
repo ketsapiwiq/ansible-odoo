@@ -1,9 +1,25 @@
+- include_vars: ../host_vars/{{ odoo_db_ansible_host }}.yml
+
+# ASSETS
+
+# https://gitlab.com/coopaname/odoo-infra/-/issues/35#note_499979003
+# https://medium.com/@reedrehg/odoo-images-and-attachments-explaining-and-regenerating-assets-d1eb7fe8a3ed
+- name: Purge cache of assets in database
+  delegate_to: "{{ odoo_db_ansible_host }}"
+  postgresql_query:
+    query: "DELETE FROM ir_attachment WHERE res_model='ir.ui.view' AND name LIKE '%assets_%';"
+    db: "{{odoo_db_name}}"
+    login_user: postgres
+    port: "{{postgresql_port}}"
+#   ignore_errors: ansible_check_mode
+  tags: ["odoo_purge_assets"]
+  when: odoo_purge_assets | bool == True
+#   La condition logique serait :
+#   when: odoo_db_restore | bool == True
+  become: yes
 
 # MAILSERVERS
 
-- include_vars: ../host_vars/{{ odoo_db_ansible_host }}.yml
-  tags: ["odoo_remove_mailservers"]
-  when: odoo_remove_mailservers
 
 - name: Remove odoo mail server to disable mail sending
   delegate_to: "{{ odoo_db_ansible_host }}"
