@@ -90,6 +90,7 @@ odoo_change_admin_password: no
 
 # Modules
 odoo_init_modules: []
+odoo_update_modules: []
 odoo_update_all_modules: no
 
 # UUID

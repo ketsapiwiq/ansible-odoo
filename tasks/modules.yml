@@ -6,29 +6,42 @@
   tags:
     - odoo_modules
 
-# TODO: appliquer cette tâche comme handler que quand y a eu un git pull de nouveau code
 - name: Update all Odoo modules if set
   async: 1800 # wait 30min then kill it
+  poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s 
   shell:
-    cmd: "docker-compose -f docker-compose.yml -f docker-compose.donothing.yml up -d odoo; docker-compose exec -T odoo /opt/odoo/odoo-bin --stop-after-init --update all --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/update_all_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log; docker-compose stop odoo"
+    cmd: "docker-compose -f docker-compose.yml -f docker-compose.donothing.yml up -d odoo; docker-compose exec -T odoo /opt/odoo/odoo-bin --stop-after-init --update all --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/update_all_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log 2>&1; docker-compose stop odoo"
     chdir: "{{ odoo_project_path }}"
-  register: odoo_update_all_modules_logs
-  when: odoo_update_all_modules and not ansible_check_mode
+  ignore_errors: "{{ ansible_check_mode }}" # check mode incompatible avec l'option 'async', l'exécution asynchrone de la tâche
+  when: odoo_update_all_modules
   become: yes
   tags:
   - odoo_modules
   - odoo_update_all
 
+- name: Update listed Odoo modules if set
+  async: 900 # wait 15min then kill it
+  poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s 
+  shell:
+    cmd: "docker-compose -f docker-compose.yml -f docker-compose.donothing.yml up -d odoo; docker-compose exec -T odoo /opt/odoo/odoo-bin --stop-after-init --update {{ odoo_update_modules|join(',') }} --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/update_{{ odoo_update_modules|join('-') }}_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log 2>&1; docker-compose stop odoo"
+    chdir: "{{ odoo_project_path }}"
+  when: odoo_update_modules | length > 0
+  ignore_errors: "{{ ansible_check_mode }}" # check mode incompatible avec l'option 'async', l'exécution asynchrone de la tâche
+  become: yes
+  tags:
+  - odoo_modules
+  - odoo_update
+
 - name: Init listed Odoo modules if set
-  when: odoo_init_modules is defined and odoo_init_modules | length > 0
+  when: odoo_init_modules | length > 0
   with_items: odoo_init_modules
   become: yes
   async: 900 # wait 15min then kill it
+  poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s 
   shell:
-    cmd: "docker-compose -f docker-compose.yml -f docker-compose.donothing.yml up -d odoo; docker-compose exec -T odoo /opt/odoo/odoo-bin --stop-after-init --init {{ odoo_init_modules|join(',') }} --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/init_{{ odoo_init_modules|join('-') }}_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log; docker-compose stop odoo"
+    cmd: "docker-compose -f docker-compose.yml -f docker-compose.donothing.yml up -d odoo; docker-compose exec -T odoo /opt/odoo/odoo-bin --stop-after-init --init {{ odoo_init_modules|join(',') }} --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/init_{{ odoo_init_modules|join('-') }}_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log 2>&1; docker-compose stop odoo"
     chdir: "{{ odoo_project_path }}"
-  register: odoo_init_modules_logs
+  ignore_errors: "{{ ansible_check_mode }}" # check mode incompatible avec l'option 'async', l'exécution asynchrone de la tâche
   tags:
     - odoo_modules
     - odoo_init_modules
-    
