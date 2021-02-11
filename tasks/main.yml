@@ -285,9 +285,9 @@
 # CONTAINERS
 
 # TODO: Handle this differently with handlers and conditions
-# - name: Start (recreate) Odoo container
-- name: Start Odoo container
+- name: Restart Odoo container
   docker_compose:
+    restarted: yes
     # recreate: always
     timeout: 600
     state: present
