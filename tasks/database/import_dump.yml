@@ -25,19 +25,6 @@
   delegate_to: "{{ odoo_db_ansible_host }}"
   tags: import_dump
 
-- name: "Restore latest version of db to {{ odoo_db_name }}_imported_dump"
-  async: 3600 # wait for completion 30min
-  poll: 15 # poll for completion every 15s
-  # ne pas utiliser le module community.general.postgresql_db : restauration parallelise n'est pas supportee a partir de stdin
-  # we could want --exit-on-error here
-  command: "pg_restore --port={{ postgresql_port }} --verbose --jobs=8 --username={{ odoo_db_user }} --dbname={{ odoo_db_name }}_imported_dump {{ barman_restore_target_push_dump }}"
-  register: pg_restore_output
-  when: not ansible_check_mode
-  become: yes
-  tags: import_dump
-  delegate_facts: yes
-  delegate_to: "{{ odoo_db_ansible_host }}"
-
 - name: Create pg_restore log folder
   file:
     path: "/var/log/pg_restore/"
@@ -46,14 +33,37 @@
   delegate_facts: yes
   delegate_to: "{{ odoo_db_ansible_host }}"
 
-- name: Log pg_restore output log
+- name: Set pg_restore log path
+  set_fact:
+    pg_restore_log_path: "/var/log/pg_restore/{{ odoo_db_name }}_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log"
+
+- name: "Restore latest version of db to {{ odoo_db_name }}_imported_dump"
+  async: 3600 # wait for completion 30min
+  poll: 15 # poll for completion every 15s
+  # ne pas utiliser le module community.general.postgresql_db : restauration parallelise n'est pas supportee a partir de stdin
+  command: "pg_restore --port={{ postgresql_port }} --verbose --jobs=8 --username={{ odoo_db_user }} --dbname={{ odoo_db_name }}_imported_dump {{ barman_restore_target_push_dump }}"
+#   shell: "pg_restore --port={{ postgresql_port }} --verbose --jobs=8 --username={{ odoo_db_user }} --dbname={{ odoo_db_name }}_imported_dump {{ barman_restore_target_push_dump }} > {{ pg_restore_log_path }}"
+  register: pg_restore_output
+  ignore_errors: yes
+  when: not ansible_check_mode
+  become: yes
+  tags: import_dump
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"
+
+- name: Log pg_restore stderr output log
   copy:
     content: "{{ pg_restore_output.stderr }}"
-    dest: "/var/log/pg_restore/{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log"
+    dest: "{{ pg_restore_log_path }}"
   ignore_errors: "{{ ansible_check_mode}}"
   tags: import_dump
   delegate_facts: yes
   delegate_to: "{{ odoo_db_ansible_host }}"
+
+- name: Check pg_restore status and fail if failed
+  fail:
+    msg: "pg_restore exited with an error code, check logs: /var/log/pg_restore/{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log"
+  when: pg_restore_output.rc != 0
 
 - name: Delete {{ barman_restore_target_push_dump }} file
   file:
