@@ -154,6 +154,7 @@
     src: odoo.conf.j2
     dest: "{{ odoo_project_path }}/config/odoo.conf" 
   become: yes
+  no_log: true
   # notify: Restart Odoo
   tags:
     - odoo_config
