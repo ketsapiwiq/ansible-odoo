@@ -98,3 +98,6 @@ odoo_random_uuid: no
 
 # Don't call home
 odoo_call_home: no
+
+# Change exporation date
+odoo_change_expiration_date: no

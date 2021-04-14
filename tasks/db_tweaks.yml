@@ -72,3 +72,14 @@
   become: yes
 #  TODO: add handler so that odoo reboots when uuid changes
 
+- name: Change database expiration date if enabled
+  delegate_to: "{{ odoo_db_ansible_host }}"
+  postgresql_query:
+    query: UPDATE ir_config_parameter SET value = current_date + interval '50 days' WHERE key = 'database.expiration_date';
+    db: "{{ odoo_db_name }}"
+    login_user: postgres
+    port: "{{ postgresql_port }}"
+  when: odoo_change_expiration_date is defined and odoo_change_expiration_date | bool == True
+  tags: odoo_change_expiration_date
+  become: yes
+#  TODO: add handler so that odoo reboots when expiration date changes
