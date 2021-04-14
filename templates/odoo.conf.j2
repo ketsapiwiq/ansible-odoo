@@ -32,7 +32,6 @@ addons_path:
     /mnt/extra-addons/OCA/social,
     /mnt/extra-addons/OCA/server-tools,
     /mnt/extra-addons/OCA/server-ux,
-    /mnt/extra-addons/OCA/server-auth,
     /mnt/extra-addons/OCA/timesheet,
     /mnt/extra-addons/OCA/web,
     /mnt/extra-addons/addons-coopaname,
@@ -163,14 +162,6 @@ sentry_environment = {{ inventory_hostname }}
 # sentry_auto_log_stacks = false
 # sentry_odoo_dir = /opt/odoo/odoo/
 # sentry_odoo_dir = /opt/odoo/
-
- # The password that allows user to logging in with any login. If not set, the feature is disabled.
-auth_admin_passkey_password = {{ secret_odoo_passkey }}
-# if enabled, an email will be send to the user, if his account has been used by the System Administrator.
-auth_admin_passkey_send_to_user = True
-# If set, an email will be sent to this mail
-# auth_admin_passkey_sysadmin_email =
-auth_admin_passkey_sysadmin_lang = fr_FR
 
 # root:1 is the default value
 # https://apps.odoo.com/apps/modules/10.0/queue_job/
