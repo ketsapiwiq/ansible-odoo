@@ -18,7 +18,6 @@ Voir le fichier `defaults/main.yml`
   roles:
   - coopaname.odoo
   vars:
-    - odoo_env_repo_version: main
     - odoo_registry_image_version: latest
     - odoo_coopaname_addons_repo_version: main
     - odoo_niboo_addons_rsync: yes

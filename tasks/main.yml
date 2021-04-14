@@ -30,21 +30,6 @@
 
 # CODE
 
-# this code is suppposed to be in the image but we could need this for example for sentry codebase tracking feature
-- name: Ensure Coopaname Odoo code (odoo_env) present and up to date
-  git:
-    dest: "{{ odoo_project_path }}"
-    repo: https://{{ odoo_env_gitlab_token_username }}:{{ odoo_env_gitlab_token_secret }}@{{ odoo_env_repo_address }}
-    version: "{{ odoo_env_repo_version }}"
-    update: yes
-    clone: yes
-    force: no
-  when: odoo_odoo_env_as_volume
-  tags:
-    - odoo_install
-    - odoo_git
-    - odoo_download_template
-
 - name: Ensure Coopaname Odoo directories are present
   file:
     path: "{{ item }}"
@@ -298,7 +283,6 @@
   become: yes
   register: odoo_docker_compose
   environment:
-    # ODOO_ENV_VERSION: "{{ 'latest' if odoo_env_repo_version == 'main' else odoo_env_repo_version }}"
     ODOO_ENV_VERSION: "{{ odoo_registry_image_version }}"
   tags:
     - odoo_start

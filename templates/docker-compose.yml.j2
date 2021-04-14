@@ -25,10 +25,6 @@ services:
 
       - ./config:/etc/odoo
       - ./data_dir:/usr/share/odoo
-{% if odoo_odoo_env_as_volume %}
-      # Uncomment this if you want to develop on these modules without rebuilding the Docker image
-      - ./addons:/mnt/extra-addons
-{% endif %}
       # Edit this line if you placed the repository at <https://gitlab.com/coopaname/odoo/> somewhere else
       - ./addons/addons-coopaname:/mnt/extra-addons/addons-coopaname
 {% if odoo_addons_cae_enabled %}
