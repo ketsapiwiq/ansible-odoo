@@ -274,17 +274,14 @@
 - name: Restart Odoo container
   docker_compose:
     restarted: yes
-    # recreate: always
+    # Default, only if definition changed
+    recreate: smart
     timeout: 600
     state: present
     remove_orphans: yes
     project_src: "{{ odoo_project_path }}"
-  # Specify $ODOO_ENV_BRANCH to use another image than latest
-  #     image: registry.gitlab.com/coopaname/odoo_env:${ODOO_ENV_BRANCH:-latest}
   become: yes
   register: odoo_docker_compose
-  environment:
-    ODOO_ENV_VERSION: "{{ odoo_registry_image_version }}"
   tags:
     - odoo_start
     - odoo_modules

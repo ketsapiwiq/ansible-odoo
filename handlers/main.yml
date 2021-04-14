@@ -8,8 +8,6 @@
 #     state: present
 #     timeout: 600
 #     project_src: "{{ odoo_project_path }}"
-#   environment: 
-#     ODOO_ENV_VERSION: "{{ odoo_registry_image_version }}"
 #   become: yes
 
 # - name: Restart Odoo
@@ -19,6 +17,4 @@
 #     state: present
 #     project_src: "{{ odoo_project_path }}"
 #   become: yes
-  # environment: 
-  #   ODOO_ENV_VERSION: "{{ odoo_registry_image_version }}"
 # - import_playbook: odoo_disablemaintenance.yml

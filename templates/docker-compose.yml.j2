@@ -2,7 +2,7 @@ version: '3'
 services:
 
   odoo:
-    image: registry.gitlab.com/coopaname/odoo_env:${ODOO_ENV_VERSION:-latest}
+    image: registry.gitlab.com/coopaname/odoo_env:{{ odoo_registry_image_version }}
     restart: unless-stopped
     environment:
       ODOO_SESSION_REDIS: 1
