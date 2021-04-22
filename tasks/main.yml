@@ -176,6 +176,7 @@
   docker_image:
     name: "{{ odoo_registry_image }}:{{ odoo_registry_image_version }}"
     source: pull
+    force_source: true
   become: yes
   tags:
     - odoo_install
