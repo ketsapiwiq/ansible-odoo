@@ -63,6 +63,7 @@
 - name: Print Coopaname addons code diffs since last git commit
   debug:
     msg: "{{ odoo_coopaname_addons_git.stdout_lines }}"
+  ignore_errors: "{{ ansible_check_mode }}"
 
 # Stash changes on test_compta then reapply them on top
 - name: Stash changes when required in Coopaname addons code
@@ -70,6 +71,7 @@
     cmd: 'git stash push --all --message "Automatic stash by Ansible"'
     chdir: "{{ odoo_coopaname_addons_path }}"
   when: odoo_coopaname_addons_stash
+  ignore_errors: "{{ ansible_check_mode }}"
 
 - name: Ensure Odoo addons for Coopaname code present and up to date
   git:
