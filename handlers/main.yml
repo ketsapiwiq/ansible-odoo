@@ -8,17 +8,6 @@
     remove_orphans: yes
   become: yes
 
-# When we need to recreate Odoo container immediately to cancel the command override defined in docker-compose.donothing.yml
-- name: Recreate Odoo immediately
-  docker_compose:
-    recreate: always
-    state: present
-    # let's be human still
-    timeout: 10
-    project_src: "{{ odoo_project_path }}"
-    remove_orphans: yes
-  become: yes
-
 - name: Restart Odoo
   docker_compose:
     restarted: yes

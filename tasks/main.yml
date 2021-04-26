@@ -258,7 +258,7 @@
 
 - name: Ensure Odoo container is started
   docker_compose:
-    started: yes
+    stopped: no
     # this is done by handlers
     restarted: no
     # Default, only if definition changed
@@ -271,8 +271,6 @@
   tags:
     - odoo_start
     - odoo_modules
-  when:
-    - not ansible_check_mode
 
 - name: Prune dangling (untagged) images
   docker_prune:

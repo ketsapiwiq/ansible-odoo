@@ -5,64 +5,23 @@
   tags:
     - odoo_modules
 
-- name: Configure odoo docker-compose donothing extension
-  copy:
-    content: |
-      version: '3'
-      services:
-        odoo:
-          command: tail -f /dev/null
-    dest: "{{ odoo_project_path }}/docker-compose.donothing.yml"
+- name: Ensure Odoo container is started for modules updates/inits
+  docker_compose:
+    stopped: no
+    restarted: no
+    # Default, only if definition changed
+    recreate: smart
+    timeout: 600
+    state: present
+    remove_orphans: yes
+    project_src: "{{ odoo_project_path }}"
   become: yes
   tags:
-    - odoo_install
-    - odoo_docker_compose
-    - odoo_config
+    - odoo_modules
 
-- name: Update all Odoo modules if set
-  async: 3600 # wait 1h then kill it
-  poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s 
-  shell:
-    cmd: "docker-compose -f docker-compose.yml -f docker-compose.donothing.yml up -d odoo; docker-compose exec -T odoo /opt/odoo/odoo-bin --stop-after-init --update all --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/update_all_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log 2>&1; docker-compose stop odoo"
-    chdir: "{{ odoo_project_path }}"
-  ignore_errors: "{{ ansible_check_mode }}" # check mode incompatible avec l'option 'async', l'exécution asynchrone de la tâche
-  when: odoo_update_all_modules
-  # We need to recreate Odoo container to cancel the command override defined in docker-compose.donothing.yml
-  notify: Recreate Odoo immediately
-  become: yes
-  tags:
-  - odoo_modules
-  - odoo_update_all
-
-- name: Update listed Odoo modules if set
-  async: 3600 # wait 1h then kill it
-  poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s 
-  shell:
-    cmd: "docker-compose -f docker-compose.yml -f docker-compose.donothing.yml up -d odoo; docker-compose exec -T odoo /opt/odoo/odoo-bin --stop-after-init --update {{ odoo_update_modules|join(',') }} --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/update_{{ odoo_update_modules|join('-') }}_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log 2>&1; docker-compose stop odoo"
-    chdir: "{{ odoo_project_path }}"
-  when: odoo_update_modules | length > 0
-  ignore_errors: "{{ ansible_check_mode }}" # check mode incompatible avec l'option 'async', l'exécution asynchrone de la tâche
-  become: yes
-  # We need to recreate Odoo container to cancel the command override defined in docker-compose.donothing.yml
-  notify: Recreate Odoo immediately
-  tags:
-  - odoo_modules
-  - odoo_update
-
-- name: "Auto-update modified Odoo modules (requires requires OCA's module_auto_update: https://github.com/OCA/server-tools)"
-  shell:
-    cmd: docker-compose up -d odoo; docker-compose exec -T odoo bash -c "/opt/odoo/odoo-bin shell --stop-after-init --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 <<< \"env['ir.module.module'].upgrade_changed_checksum()\" > /var/log/odoo_modules/update_auto_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log" 2>&1;
-    chdir: "{{ odoo_project_path }}"
-  async: 3600 # wait 1h then kill it
-  poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s 
-  ignore_errors: "{{ ansible_check_mode }}" # check mode incompatible avec l'option 'async', l'exécution asynchrone de la tâche
-  when: "odoo_update_auto_modules | bool"
-  become: yes
-  notify: Restart Odoo
-  tags:
-  - odoo_modules
-  - odoo_update
-  - odoo_update_auto
+- name: Set date for module logs
+  set_fact:
+    odoo_module_logs_date: "{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}"
 
 - name: Init listed Odoo modules if set
   when: odoo_init_modules | length > 0
@@ -71,11 +30,88 @@
   async: 3600 # wait 1h then kill it
   poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s 
   shell:
-    cmd: "docker-compose -f docker-compose.yml -f docker-compose.donothing.yml up -d odoo; docker-compose exec -T odoo /opt/odoo/odoo-bin --stop-after-init --init {{ odoo_init_modules|join(',') }} --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/init_{{ odoo_init_modules|join('-') }}_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log 2>&1; docker-compose stop odoo"
+    cmd: "docker-compose exec -T odoo /opt/odoo/odoo-bin --stop-after-init --init {{ odoo_init_modules|join(',') }} --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/init_{{ odoo_init_modules|join('-') }}_{{ odoo_module_logs_date }}.log 2>&1;"
     chdir: "{{ odoo_project_path }}"
-  # We need to recreate Odoo container to cancel the command override defined in docker-compose.donothing.yml
-  notify: Recreate Odoo immediately
-  ignore_errors: "{{ ansible_check_mode }}" # check mode incompatible avec l'option 'async', l'exécution asynchrone de la tâche
+  register: odoo_modules_init_list_result
+  notify: Restart Odoo
+  # Fail later
+  ignore_errors: yes
   tags:
     - odoo_modules
     - odoo_init_modules
+
+- name: Update listed Odoo modules if set
+  async: 3600 # wait 1h then kill it
+  poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s
+  shell:
+    cmd: "docker-compose exec -T odoo /opt/odoo/odoo-bin --stop-after-init --update {{ odoo_update_modules|join(',') }} --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/update_{{ odoo_update_modules|join('-') }}_{{ odoo_module_logs_date }}.log 2>&1;"
+    chdir: "{{ odoo_project_path }}"
+  when: odoo_update_modules | length > 0
+  register: odoo_modules_update_list_result
+  # Fail later
+  ignore_errors: yes
+  become: yes
+  notify: Restart Odoo
+  tags:
+  - odoo_modules
+  - odoo_update
+
+- name: Update all Odoo modules if set
+  async: 3600 # wait 1h then kill it
+  poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s 
+  shell:
+    cmd: "docker-compose exec -T odoo /opt/odoo/odoo-bin --stop-after-init --update all --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/update_all_{{ odoo_module_logs_date }}.log 2>&1;"
+    chdir: "{{ odoo_project_path }}"
+  # Fail later
+  ignore_errors: yes
+  when: odoo_update_all_modules
+  notify: Restart Odoo
+  register: odoo_modules_update_all_result
+  become: yes
+  tags:
+  - odoo_modules
+  - odoo_update_all
+
+- name: "Auto-update modified Odoo modules (requires OCA's module_auto_update: https://github.com/OCA/server-tools and a first `--update all`)"
+  shell:
+    cmd: docker-compose exec -T odoo bash -c "/opt/odoo/odoo-bin shell --stop-after-init --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 <<< \"env['ir.module.module'].upgrade_changed_checksum()\" " > /var/log/odoo_modules/update_auto_{{ odoo_module_logs_date }}.log 2>&1;
+    chdir: "{{ odoo_project_path }}"
+  async: 3600 # wait 1h then kill it
+  poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s 
+  # Fail later
+  ignore_errors: yes
+  when: "odoo_update_auto_modules | bool"
+  register: odoo_modules_auto_update_result
+  become: yes
+  notify: Restart Odoo
+  tags:
+  - odoo_modules
+  - odoo_update
+  - odoo_update_auto
+
+- name: Register init/update logs
+  find:
+    paths: "/var/log/odoo_modules/"
+    patterns: "*_{{ odoo_module_logs_date }}.log"
+  register: odoo_modules_logfiles
+
+- name: Get module logs
+  slurp:
+    src: "{{ item.path }}"
+  register: odoo_modules_logs
+  loop: "{{ odoo_modules_logfiles.files }}"
+
+- name: Print module logs
+  debug:
+    var: item
+  loop: "{{ odoo_modules_logs }}"
+
+- name: Fail if some init/update failed
+  debug:
+    msg: "{{item.cmd }} finished with error code {{ item.rc }}. Please check logs in /var/log/odoo_modules/*_{{ odoo_module_logs_date }}.log"
+  failed_when: "{{ item.rc }} != 0"
+  with_items:
+    - "{{ odoo_modules_init_list_result }}"
+    - "{{ odoo_modules_update_all_result}}"
+    - "{{ odoo_modules_update_list_result }}"
+    - "{{ odoo_modules_auto_update_result }}"
