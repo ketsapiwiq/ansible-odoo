@@ -166,7 +166,6 @@
   become: yes
   tags:
     - odoo_install
-  notify: Recreate Odoo
 
 - name: Pull latest docker image from Container registry
   docker_image:
