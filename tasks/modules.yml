@@ -89,26 +89,10 @@
   - odoo_update
   - odoo_update_auto
 
-- name: Register init/update logs
-  find:
-    paths: "/var/log/odoo_modules/"
-    patterns: "*_{{ odoo_module_logs_date }}.log"
-  register: odoo_modules_logfiles
-
-- name: Get module logs
-  slurp:
-    src: "{{ item.path }}"
-  register: odoo_modules_logs
-  loop: "{{ odoo_modules_logfiles.files }}"
-
-- name: Print module logs
-  debug:
-    var: item
-  loop: "{{ odoo_modules_logs }}"
 
 - name: Fail if some init/update failed
   debug:
-    msg: "{{item.cmd }} finished with error code {{ item.rc }}. Please check logs in /var/log/odoo_modules/*_{{ odoo_module_logs_date }}.log"
+    msg: "Module operation '{{item.cmd }}' finished with error code {{ item.rc }}. Please check detailed logs in /var/log/odoo_modules/*_{{ odoo_module_logs_date }}.log"
   failed_when: "{{ item.rc }} != 0"
   with_items:
     - "{{ odoo_modules_init_list_result }}"
