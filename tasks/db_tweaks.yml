@@ -11,6 +11,7 @@
     db: "{{odoo_db_name}}"
     login_user: postgres
     port: "{{postgresql_port}}"
+  notify: Restart Odoo
 #   ignore_errors: ansible_check_mode
   tags: ["odoo_purge_assets"]
   when: odoo_purge_assets | bool == True
@@ -32,6 +33,7 @@
     port: "{{postgresql_port}}"
   # ignore_errors: yes
   tags: ["odoo_remove_mailservers"]
+  notify: Restart Odoo
   when:
     - odoo_remove_mailservers
     - not ansible_check_mode
@@ -51,6 +53,7 @@
     login_user: postgres
     port: "{{ postgresql_port }}"
   no_log: yes
+  notify: Restart Odoo
   tags: ["odoo_change_admin_password"]
   when:
     - odoo_change_admin_password
@@ -69,8 +72,8 @@
     port: "{{ postgresql_port }}"
   when: odoo_random_uuid is defined and odoo_random_uuid | bool == True
   tags: odoo_random_uuid
+  notify: Restart Odoo
   become: yes
-#  TODO: add handler so that odoo reboots when uuid changes
 
 - name: Change database expiration date if enabled
   delegate_to: "{{ odoo_db_ansible_host }}"
@@ -81,5 +84,5 @@
     port: "{{ postgresql_port }}"
   when: odoo_change_expiration_date is defined and odoo_change_expiration_date | bool == True
   tags: odoo_change_expiration_date
+  notify: Restart Odoo
   become: yes
-#  TODO: add handler so that odoo reboots when expiration date changes

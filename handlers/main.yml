@@ -1,20 +1,31 @@
-# Not tested yet
-# - import_playbook: odoo_enablemaintenance.yml
-# TODO: Add "listen" and carefully restart/recreate by checking stuff before
 
-# - name: Recreate Odoo
-#   docker_compose:
-#     recreate: always
-#     state: present
-#     timeout: 600
-#     project_src: "{{ odoo_project_path }}"
-#   become: yes
+- name: Recreate Odoo
+  docker_compose:
+    recreate: always
+    state: present
+    timeout: 600
+    project_src: "{{ odoo_project_path }}"
+    remove_orphans: yes
+  become: yes
 
-# - name: Restart Odoo
-#   docker_compose:
-#     restarted: yes
-#     timeout: 600
-#     state: present
-#     project_src: "{{ odoo_project_path }}"
-#   become: yes
-# - import_playbook: odoo_disablemaintenance.yml
+# When we need to recreate Odoo container immediately to cancel the command override defined in docker-compose.donothing.yml
+- name: Recreate Odoo immediately
+  docker_compose:
+    recreate: always
+    state: present
+    # let's be human still
+    timeout: 10
+    project_src: "{{ odoo_project_path }}"
+    remove_orphans: yes
+  become: yes
+
+- name: Restart Odoo
+  docker_compose:
+    restarted: yes
+    # only if definition changed
+    recreate: smart
+    timeout: 600
+    state: present
+    project_src: "{{ odoo_project_path }}"
+    remove_orphans: yes
+  become: yes

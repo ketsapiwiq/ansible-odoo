@@ -1,10 +1,23 @@
-
 - name: Create odoo_modules log folder
   file:
     path: "/var/log/odoo_modules/"
     state: directory
   tags:
     - odoo_modules
+
+- name: Configure odoo docker-compose donothing extension
+  copy:
+    content: |
+      version: '3'
+        services:
+          odoo:
+            command: tail -f /dev/null
+    dest: "{{ odoo_project_path }}/docker-compose.donothing.yml"
+  become: yes
+  tags:
+    - odoo_install
+    - odoo_docker_compose
+    - odoo_config
 
 - name: Update all Odoo modules if set
   async: 3600 # wait 1h then kill it
@@ -14,6 +27,8 @@
     chdir: "{{ odoo_project_path }}"
   ignore_errors: "{{ ansible_check_mode }}" # check mode incompatible avec l'option 'async', l'exécution asynchrone de la tâche
   when: odoo_update_all_modules
+  # We need to recreate Odoo container to cancel the command override defined in docker-compose.donothing.yml
+  notify: Recreate Odoo immediately
   become: yes
   tags:
   - odoo_modules
@@ -28,6 +43,8 @@
   when: odoo_update_modules | length > 0
   ignore_errors: "{{ ansible_check_mode }}" # check mode incompatible avec l'option 'async', l'exécution asynchrone de la tâche
   become: yes
+  # We need to recreate Odoo container to cancel the command override defined in docker-compose.donothing.yml
+  notify: Recreate Odoo immediately
   tags:
   - odoo_modules
   - odoo_update
@@ -41,6 +58,8 @@
   shell:
     cmd: "docker-compose -f docker-compose.yml -f docker-compose.donothing.yml up -d odoo; docker-compose exec -T odoo /opt/odoo/odoo-bin --stop-after-init --init {{ odoo_init_modules|join(',') }} --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/init_{{ odoo_init_modules|join('-') }}_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log 2>&1; docker-compose stop odoo"
     chdir: "{{ odoo_project_path }}"
+  # We need to recreate Odoo container to cancel the command override defined in docker-compose.donothing.yml
+  notify: Recreate Odoo immediately
   ignore_errors: "{{ ansible_check_mode }}" # check mode incompatible avec l'option 'async', l'exécution asynchrone de la tâche
   tags:
     - odoo_modules

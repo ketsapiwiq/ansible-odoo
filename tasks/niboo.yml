@@ -46,6 +46,7 @@
   tags:
   - odoo_niboo_addons
   - odoo_niboo_addons_rsync
+  notify: Restart Odoo
 
 - name: Ensure Niboo's 3 Odoo addons subfolders are present 1/2
   stat:

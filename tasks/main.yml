@@ -44,6 +44,7 @@
   tags:
     - odoo_install
     - odoo_download_template
+  notify: Restart Odoo
 
 
 # ADDONS
@@ -86,6 +87,7 @@
 #   ignore_errors: yes
   become: yes
   tags: odoo_install,odoo_git,odoo_install_coopaname_addons
+  notify: Restart Odoo
 
 - name: Pop changes from stash when required
   command:
@@ -105,6 +107,7 @@
   become: yes
   tags: odoo_install,odoo_git,odoo_install_coopaname_addons,odoo_install_addons_cae
   when: odoo_addons_cae_enabled is defined and odoo_addons_cae_enabled == True
+  notify: Restart Odoo
 
 - name: "Import Niboo addons tasks: copy from existing install"
   import_tasks: niboo.yml
@@ -125,6 +128,7 @@
   become: yes
   tags:
     - odoo_install
+  notify: Restart Odoo
 
 
 # CONFIG
@@ -134,18 +138,7 @@
     src: docker-compose.yml.j2
     dest: "{{ odoo_project_path }}/docker-compose.yml" # required. Location to render the template to on the remote machine.
   become: yes
-  # notify: Recreate Odoo
-  tags:
-    - odoo_install
-    - odoo_docker_compose
-    - odoo_config
-
-- name: Configure odoo docker-compose donothing extension
-  template:
-    src: docker-compose.donothing.yml.j2
-    dest: "{{ odoo_project_path }}/docker-compose.donothing.yml"
-  become: yes
-  # notify: Recreate Odoo
+  notify: Recreate Odoo
   tags:
     - odoo_install
     - odoo_docker_compose
@@ -157,7 +150,7 @@
     dest: "{{ odoo_project_path }}/config/odoo.conf" 
   become: yes
   no_log: true
-  # notify: Restart Odoo
+  notify: Restart Odoo
   tags:
     - odoo_config
     - odoo_install
@@ -173,6 +166,7 @@
   become: yes
   tags:
     - odoo_install
+  notify: Recreate Odoo
 
 - name: Pull latest docker image from Container registry
   docker_image:
@@ -182,18 +176,7 @@
   become: yes
   tags:
     - odoo_install
-
-# - name: Stop Odoo container
-#   docker_compose:
-#     timeout: 600
-#     stopped: yes
-#     project_src: "{{ odoo_project_path }}"
-#   become: yes
-#   tags:
-#     - odoo_stop
-#   when:
-#     - not ansible_check_mode
-
+  notify: Recreate Odoo
 
 # DB
 
@@ -271,12 +254,14 @@
 #   debug:
 #     var: result.container.State.Health.Status == "healthy"
 #   when: result.exists
+
 # CONTAINERS
 
-# TODO: Handle this differently with handlers and conditions
-- name: Restart Odoo container
+- name: Ensure Odoo container is started
   docker_compose:
-    restarted: yes
+    started: yes
+    # this is done by handlers
+    restarted: no
     # Default, only if definition changed
     recreate: smart
     timeout: 600
@@ -284,12 +269,20 @@
     remove_orphans: yes
     project_src: "{{ odoo_project_path }}"
   become: yes
-  register: odoo_docker_compose
   tags:
     - odoo_start
     - odoo_modules
   when:
     - not ansible_check_mode
-# TODO: Add `docker container prune` and `docker image prune`?
 
+- name: Prune dangling (untagged) images
+  docker_prune:
+    containers: no
+    images: yes
+    networks: no # it could
+    volumes: no
+    builder_cache: no
+    # this would also remove any unused image
+    # images_filters:
+    #   dangling: false
 

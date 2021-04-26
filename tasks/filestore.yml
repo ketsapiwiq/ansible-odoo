@@ -33,11 +33,11 @@
     path: "{{ odoo_filestore_dest_path }}"
     owner: odoo
     group: odoo
+  notify: Restart Odoo
 
 - name: "Copy current files at {{ odoo_filestore_most_recent_path }} to new filestore at {{ odoo_filestore_dest_path }}"
 # Trailing slash in source is important to avoid a dir to be created inside
   command: "rsync -a --delete --partial --stats -e 'ssh -o StrictHostKeyChecking=no' {{ odoo_filestore_most_recent_path }}/coo_production/ {{ odoo_filestore_dest_ssh_host }}:{{ odoo_filestore_dest_path }}/{{ odoo_db_name }}"
-  # command: "rsync --delete -a --partial --stats {{ odoo_filestore_most_recent_path }} {{ odoo_filestore_dest_ssh_host }}:{{ odoo_filestore_dest_path }}"
   async: 1800 # wait for completion 30min
   poll: 15 # poll for completion every 15s
   register: filestore_rsync_output
@@ -46,6 +46,7 @@
   when:
     - odoo_filestore_restore is defined and odoo_filestore_restore == True
     - not ansible_check_mode
+  notify: Restart Odoo
 
 - name: Log filestore rsync output
   copy:
@@ -62,11 +63,13 @@
     recurse: yes
     owner: odoo
     group: odoo
+  notify: Restart Odoo
 
 - name: Ensure Odoo filestore is named according to db 1/2
   stat:
     path: "{{ odoo_filestore_dest_path }}/{{ odoo_db_name }}"
   register: odoo_filestore_check
+  changed_when: false
 
 - name: Ensure Odoo filestore is named according to db 2/2
   ansible.builtin.debug:
@@ -75,5 +78,6 @@
     - odoo_filestore_check is defined
     - not ansible_check_mode
   failed_when: not odoo_filestore_check.stat.exists or (odoo_filestore_check.stat.isdir is defined and not odoo_filestore_check.stat.isdir)
+  changed_when: false
 
 # TODO: Ensure filestore is OK

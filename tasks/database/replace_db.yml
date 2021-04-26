@@ -38,11 +38,8 @@
     state: present
     timeout: 600
     project_src: "{{ odoo_project_path }}"
-  register: odoo_docker_state
-#   ignore_errors: yes
   become: yes
 
-# If this is not enough, needs `REVOKE CONNECT ON DATABASE dbname FROM PUBLIC, username;` (pgadmin, what else?)
 - name: "Kill connections to {{ odoo_db_name }}"
   postgresql_query:
     query: "SELECT 
@@ -92,11 +89,11 @@
   delegate_to: "{{ odoo_db_ansible_host }}"
   become: yes
 
-# - name: Restart Odoo if it was started
-#   docker_compose:
-#     stopped: yes
-#     state: present
-#     timeout: 600
-#     project_src: "{{ odoo_project_path }}"
-#   when: odoo_docker_state.changed
-#   become: yes
+- name: Ensure Odoo is started
+  docker_compose:
+# useless: default
+    stopped: no
+    state: present
+    timeout: 600
+    project_src: "{{ odoo_project_path }}"
+  become: yes
