@@ -92,10 +92,15 @@
 
 - name: Fail if some init/update failed
   debug:
-    msg: "Module operation '{{item.cmd }}' finished with error code {{ item.rc }}. Please check detailed logs in /var/log/odoo_modules/*_{{ odoo_module_logs_date }}.log"
-  failed_when: "{{ item.rc }} != 0"
+    msg: "Module operation '{{ item.cmd }}' finished with {% if item.rc != 0 %}error{% else %}OK{% endif%} code {{ item.rc }}. Check detailed logs in /var/log/odoo_modules/*_{{ odoo_module_logs_date }}.log"
+  failed_when: "item.rc != 0"
   with_items:
     - "{{ odoo_modules_init_list_result }}"
-    - "{{ odoo_modules_update_all_result}}"
+    - "{{ odoo_modules_update_all_result }}"
     - "{{ odoo_modules_update_list_result }}"
     - "{{ odoo_modules_auto_update_result }}"
+  when:
+    - "not ansible_check_mode"
+    - "item.skipped is not defined"
+    - "item.cmd is defined"
+    - "item.rc is defined"
