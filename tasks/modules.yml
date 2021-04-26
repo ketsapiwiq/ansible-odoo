@@ -9,9 +9,9 @@
   copy:
     content: |
       version: '3'
-        services:
-          odoo:
-            command: tail -f /dev/null
+      services:
+        odoo:
+          command: tail -f /dev/null
     dest: "{{ odoo_project_path }}/docker-compose.donothing.yml"
   become: yes
   tags:
