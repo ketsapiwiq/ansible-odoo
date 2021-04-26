@@ -273,6 +273,7 @@
     - odoo_modules
 
 - name: Prune dangling (untagged) images
+  become: yes
   docker_prune:
     containers: no
     images: yes
@@ -282,4 +283,3 @@
     # this would also remove any unused image
     # images_filters:
     #   dangling: false
-
