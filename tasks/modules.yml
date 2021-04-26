@@ -49,6 +49,21 @@
   - odoo_modules
   - odoo_update
 
+- name: "Auto-update modified Odoo modules (requires requires OCA's module_auto_update: https://github.com/OCA/server-tools)"
+  shell:
+    cmd: docker-compose up -d odoo; docker-compose exec -T odoo bash -c "/opt/odoo/odoo-bin shell --stop-after-init --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 <<< \"env['ir.module.module'].upgrade_changed_checksum()\" > /var/log/odoo_modules/update_auto_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log" 2>&1;
+    chdir: "{{ odoo_project_path }}"
+  async: 3600 # wait 1h then kill it
+  poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s 
+  ignore_errors: "{{ ansible_check_mode }}" # check mode incompatible avec l'option 'async', l'exécution asynchrone de la tâche
+  when: "odoo_update_auto_modules | bool"
+  become: yes
+  notify: Restart Odoo
+  tags:
+  - odoo_modules
+  - odoo_update
+  - odoo_update_auto
+
 - name: Init listed Odoo modules if set
   when: odoo_init_modules | length > 0
   with_items: odoo_init_modules
