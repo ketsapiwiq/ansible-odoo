@@ -99,7 +99,7 @@
   git:
     dest: "{{ odoo_project_path }}/addons/addons-cae"
     repo: https://{{ odoo_coopaname_addons_gitlab_token_username }}:{{ odoo_coopaname_addons_gitlab_token_secret }}@gitlab.com/coopaname/odoo-cae-hr.git
-    # version: "12.0"
+    version: "12.0-coopaname"
     # update: no
     update: yes
     clone: yes
