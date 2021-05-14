@@ -60,6 +60,11 @@
   delegate_facts: yes
   delegate_to: "{{ odoo_db_ansible_host }}"
 
+- name: Check pg_restore status and print tail logs
+  shell:
+    cmd: "tail {{ pg_restore_log_path }}"
+  # failed_when: pg_restore_output.rc != 0
+
 - name: Check pg_restore status and fail if failed
   fail:
     msg: "pg_restore exited with an error code, check logs: {{ pg_restore_log_path }}"
