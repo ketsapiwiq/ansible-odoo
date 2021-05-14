@@ -62,7 +62,7 @@
 
 - name: Check pg_restore status and fail if failed
   fail:
-    msg: "pg_restore exited with an error code, check logs: /var/log/pg_restore/{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log"
+    msg: "pg_restore exited with an error code, check logs: {{ pg_restore_log_path }}"
   when: pg_restore_output.rc != 0
 
 - name: Delete {{ barman_restore_target_push_dump }} file
