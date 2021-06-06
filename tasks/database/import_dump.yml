@@ -55,7 +55,7 @@
   copy:
     content: "{{ pg_restore_output.stderr }}"
     dest: "{{ pg_restore_log_path }}"
-  ignore_errors: "{{ ansible_check_mode}}"
+  ignore_errors: "{{ ansible_check_mode }}"
   tags: import_dump
   delegate_facts: yes
   delegate_to: "{{ odoo_db_ansible_host }}"
@@ -64,11 +64,15 @@
   shell:
     cmd: "tail {{ pg_restore_log_path }}"
   # failed_when: pg_restore_output.rc != 0
-
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"
+  
 - name: Check pg_restore status and fail if failed
   fail:
     msg: "pg_restore exited with an error code, check logs: {{ pg_restore_log_path }}"
   when: pg_restore_output.rc != 0
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"
 
 - name: Delete {{ barman_restore_target_push_dump }} file
   file:
