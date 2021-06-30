@@ -1,0 +1,25 @@
+
+# UUID
+
+- name: Change UUID if enabled
+  postgresql_query:
+    query: UPDATE ir_config_parameter SET value = '{{ 1000000000 | random | to_uuid }}' WHERE key = 'database.uuid';
+    db: "{{ barman_restore_source_db }}"
+  when: barman_odoo_random_uuid | bool == True
+  tags: barman_odoo_random_uuid
+  become: yes
+
+
+# ASSETS
+
+# https://gitlab.com/coopaname/odoo-infra/-/issues/35#note_499979003
+# https://medium.com/@reedrehg/odoo-images-and-attachments-explaining-and-regenerating-assets-d1eb7fe8a3ed
+- name: Purge cache of assets in database
+  postgresql_query:
+    query: "DELETE FROM ir_attachment WHERE res_model='ir.ui.view' AND name LIKE '%assets_%';"
+    db: "{{ barman_restore_source_db }}"
+#   ignore_errors: ansible_check_mode
+  tags: ["barman_purge_odoo_assets"]
+  when: barman_purge_odoo_assets | bool == True
+  become: yes
+

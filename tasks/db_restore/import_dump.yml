@@ -17,6 +17,7 @@
     encoding: UTF-8
     lc_collate: fr_FR.UTF-8
     lc_ctype: fr_FR.UTF-8
+    template: template0
     state: present
     port: "{{postgresql_port}}"
     owner: "{{ odoo_db_user }}"
@@ -36,13 +37,15 @@
 - name: Set pg_restore log path
   set_fact:
     pg_restore_log_path: "/var/log/pg_restore/{{ odoo_db_name }}_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}.log"
+  # delegate_facts: yes
+  # delegate_to: "{{ odoo_db_ansible_host }}"
 
-- name: "Restore latest version of db to {{ odoo_db_name }}_imported_dump"
+- name: "Restore pulled version of db to {{ odoo_db_name }}_imported_dump"
   async: 3600 # wait for completion 30min
   poll: 15 # poll for completion every 15s
   # ne pas utiliser le module community.general.postgresql_db : restauration parallelise n'est pas supportee a partir de stdin
-  command: "pg_restore --port={{ postgresql_port }} --verbose --jobs=8 --username={{ odoo_db_user }} --dbname={{ odoo_db_name }}_imported_dump {{ barman_restore_target_push_dump }}"
-#   shell: "pg_restore --port={{ postgresql_port }} --verbose --jobs=8 --username={{ odoo_db_user }} --dbname={{ odoo_db_name }}_imported_dump {{ barman_restore_target_push_dump }} > {{ pg_restore_log_path }}"
+  command: "pg_restore --port={{ postgresql_port }} --verbose --jobs=8 --username={{ odoo_db_user }} --dbname={{ odoo_db_name }}_imported_dump {{ odoo_db_restore_dump }}"
+#   shell: "pg_restore --port={{ postgresql_port }} --verbose --jobs=8 --username={{ odoo_db_user }} --dbname={{ odoo_db_name }}_imported_dump {{ odoo_db_restore_dump }} > {{ pg_restore_log_path }}"
   register: pg_restore_output
   ignore_errors: yes
   when: not ansible_check_mode
@@ -74,9 +77,9 @@
   delegate_facts: yes
   delegate_to: "{{ odoo_db_ansible_host }}"
 
-- name: Delete {{ barman_restore_target_push_dump }} file
+- name: Delete {{ odoo_db_restore_dump }} file
   file:
-    path: "{{ barman_restore_target_push_dump }}"
+    path: "{{ odoo_db_restore_dump }}"
     state: absent
   tags: delete_dump_file
   delegate_facts: yes

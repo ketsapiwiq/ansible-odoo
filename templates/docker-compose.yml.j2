@@ -32,8 +32,8 @@ services:
 {% endif %}
       # For example:
       # - ../coopaname-odoo:/mnt/extra-addons/addons-coopaname
-      # Edit this line if you placed the Niboo addons repository somewhere else
-      - ./addons/addons-niboo:/mnt/extra-addons/niboo
+      # Edit this line if you placed the Extra addons repository somewhere else
+      - "{{ odoo_extra_addons_path }}/{{ odoo_extra_addons_name}}:/mnt/extra-addons/{{ odoo_extra_addons_name }}"
       
     command: /opt/odoo/odoo-bin --config=/etc/odoo/odoo.conf # --log-level=debug
     # command: tail -f /dev/null # command to maintain container running while going inside using docker-compose exec or VSCode

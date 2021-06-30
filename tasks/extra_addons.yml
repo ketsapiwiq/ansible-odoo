@@ -1,0 +1,45 @@
+# Copy and unzip file extra_addons.tar.gz from a remote location
+
+- name: "Create user rsync on {{ ansible_host }}"
+  user:
+    name: rsync
+    create_home: true
+    system: yes
+    generate_ssh_key: yes
+    ssh_key_type: ed25519
+  register: rsync_user
+
+- name: "Create rsync user in {{ odoo_extra_addons_source_host }}"
+  user:
+      name: rsync
+  delegate_to: "{{ odoo_extra_addons_source_host }}"
+
+- name: Authorize key from current Odoo instance {{ ansible_host }} to {{ odoo_extra_addons_source_host }}"
+  authorized_key:
+      user: rsync
+      key: "{{ rsync_user.ssh_public_key }}"
+  delegate_to: "{{ odoo_extra_addons_source_host }}"
+
+- name: Ensure rsync is installed in Odoo instance {{ ansible_host }}"
+  apt:
+      name: rsync
+      state: present
+
+- name: "Copy extra Odoo addons files to {{ odoo_extra_addons_tmp_file }} from {{ odoo_extra_addons_source_host }}"
+  command: "rsync -a --delete --partial --stats -e 'ssh -o StrictHostKeyChecking=no' {{ odoo_extra_addons_source_host }}:{{ odoo_extra_addons_source_file }} {{ odoo_extra_addons_tmp_file }}"
+  register: extra_addons_rsync_output
+  become: yes
+  become_user: rsync
+  when:
+    - not ansible_check_mode
+
+- name: "Create {{ odoo_extra_addons_path }}"
+  file:
+    state: directory
+    path: "{{ odoo_extra_addons_path }}"
+
+- name: "Unzip extra addons in {{ odoo_extra_addons_path }}"
+  unarchive:
+    copy: no
+    dest: "{{ odoo_extra_addons_path }}"
+    src: "{{ odoo_extra_addons_tmp_file }}"

@@ -13,22 +13,23 @@ odoo_db_name: coopaname_odoo
 odoo_db_user: "{{ odoo_db_name }}"
 odoo_db_password: ~
 
-# For db restoring
-# Trois méthodes :
-# juste odoo_db_restore: juste switcher la base en cours d'utilisation avec un dump déjà importé (suffixé _imported_dump)
-# odoo_db_generate_dump à yes : demander à barman / au serveur db_backups un dump tout frais à la date barman_restore_pitr_date (immediate : la base de prod actuelle), et l'importer comme base actuelle (implique odoo_db_pull_dump==True )
-# odoo_db_pull_dump: récupérer depuis le serveur db_backups le dernier dump existant et l'importer comme base actuelle
+# DB restoring
+
+#  odoo_db_restore: remplacer la bdd actuelle ou non
+# odoo_db_restore_date: deux choix
+# - ou immediate
+# - ou une date au format ISO8601
+# odoo_db_restore_pullonly: ne pas générer de nouveau dump, prendre la dernière bdd déjà générée (économise environ 20min)
+barman_restore_db_tweaks_tasks: "tasks/db_restore/barman_restore_db_tweaks.yml"
+# barman_restore_config: odoo_prod_streaming_config
+
 # Don't restore anything by default
 odoo_db_restore: no
-odoo_db_pull_dump: yes
-odoo_db_generate_dump: no
+odoo_db_restore_date: immediate
+odoo_db_restore_dump: /tmp/odoo_db.pgc
+odoo_db_restore_pullonly: no
 
 odoo_db_ansible_host: ~
-barman_restore_pitr_date: immediate
-barman_restore_source_host: "db_backup"
-barman_restore_source_db: coo_production
-barman_restore_target_push_dump: "/root/odoo_prod_latest.pgc"
-barman_restore_source_ssh_host: barman@{{ hostvars[barman_restore_source_host]['public_ip'] }}
 
 # Config
 odoo_debug: no
@@ -45,11 +46,13 @@ odoo_coopaname_addons_path: "{{ odoo_project_path }}/addons/addons-coopaname"
 # Reapply edits only in test env
 odoo_coopaname_addons_stash: no
 
-# Niboo Addons
-odoo_niboo_addons_path: "{{ odoo_project_path }}/addons/addons-niboo"
-odoo_niboo_addons_rsync: no
-odoo_niboo_addons_source_host: odoo_staging
-odoo_niboo_addons_source_path: /odoo_ci/addons/addons-niboo
+# Extra Addons
+odoo_extra_addons_tmp_file: "/tmp/extra_addons.tar.gz"
+odoo_extra_addons_path: "{{ odoo_project_path }}/addons"
+odoo_extra_addons_name: "addons-extra"
+odoo_extra_addons: no
+odoo_extra_addons_source_host: ~
+odoo_extra_addons_source_file: ~
 
 # Odoo_env repo
 odoo_env_gitlab_token_username: odoo_prod
@@ -67,11 +70,10 @@ odoo_registry_image_version: "latest"
 # Filestore restoring
 odoo_filestore_restore: no
 odoo_filestore_dest_host: ~
-odoo_filestore_dest_ssh_host: ~ 
+odoo_filestore_dest_ssh_host: ~
 odoo_filestore_dest_path: "{{ odoo_filestore_path }}"
-odoo_filestore_most_recent_host: odoo_prod
-# odoo_filestore_most_recent_path: "{{ odoo_filestore_path }}/data_dir/filestore"
-odoo_filestore_most_recent_path: ~
+odoo_filestore_src_host: db_backup
+odoo_filestore_src_path: ~
 
 # Assets
 odoo_purge_assets: no
@@ -90,7 +92,6 @@ odoo_change_admin_password: no
 # Modules
 odoo_init_modules: []
 odoo_update_modules: []
-odoo_update_all_modules: no
 # requires OCA's module_auto_update: https://github.com/OCA/server-tools
 odoo_update_auto_modules: no
 

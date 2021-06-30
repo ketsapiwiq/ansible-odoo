@@ -39,6 +39,9 @@
     timeout: 600
     project_src: "{{ odoo_project_path }}"
   become: yes
+  environment:
+  - COMPOSE_HTTP_TIMEOUT=600
+  - DOCKER_CLIENT_TIMEOUT=600
 
 - name: "Kill connections to {{ odoo_db_name }}"
   postgresql_query:
@@ -50,9 +53,11 @@
                 pid <> pg_backend_pid()
                 AND datname = '{{ odoo_db_name }}'
                 ;"
+    db: postgres
     login_user: "{{ odoo_db_user }}"
     port: "{{postgresql_port}}"
-#   ignore_errors: yes
+    # ignore when it doesn't exist
+  ignore_errors: yes
   when: not odoo_db_name_exists.failed
   delegate_facts: yes
   delegate_to: "{{ odoo_db_ansible_host }}"
@@ -91,9 +96,14 @@
 
 - name: Ensure Odoo is started
   docker_compose:
-# useless: default
-    stopped: no
+    # recreate: always # fixes weird bugs
     state: present
-    timeout: 600
+    timeout: 60
     project_src: "{{ odoo_project_path }}"
+    debug: yes
+  # retries: 5
+  # delay: 30
+  environment:
+  - COMPOSE_HTTP_TIMEOUT=600
+  - DOCKER_CLIENT_TIMEOUT=600
   become: yes

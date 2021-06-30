@@ -1,8 +1,0 @@
-- include_vars: ../host_vars/{{ odoo_db_ansible_host }}.yml
-
-- name: Pull dump
-  include_role:
-    name: pull_dump
-    apply:
-      delegate_facts: yes
-      delegate_to: "{{ odoo_db_ansible_host }}"

@@ -1,0 +1,5 @@
+- name: Restore db main playbook
+  import_tasks: 
+    file: restore_db.yml
+  when:
+  - odoo_db_restore == True

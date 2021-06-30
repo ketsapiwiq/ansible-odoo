@@ -1,0 +1,43 @@
+---
+
+- name: Install rsync
+  apt:
+    name: rsync
+    state: present
+  become: yes
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"
+
+- name: "Create user barman locally"
+  become: yes
+  user:
+    name: barman
+    create_home: true
+    # home: "{{ barman_home }}"
+    system: yes
+    generate_ssh_key: yes
+    ssh_key_type: ed25519
+    # ssh_key_file: "{{ barman_user_ssh_key }}"
+  register: barman_restore_target_user
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"
+
+- name: "Copy SSH public key of {{ odoo_db_ansible_host }} to allow it to connect to {{ barman_restore_source_host }}"
+  become: yes
+  authorized_key:
+    user: barman
+    key: "{{ barman_restore_target_user.ssh_public_key }}"
+  delegate_to: "{{ barman_restore_source_host }}"
+
+
+- name: "Pull database dump from {{ barman_restore_source_ssh_host }}:{{ hostvars[barman_restore_source_host]['barman_restore_ordered_dump'] }} to {{ odoo_db_restore_dump }}"
+  command: "rsync -a -L -e 'ssh -o StrictHostKeyChecking=no -i {{ barman_restore_target_user.ssh_key_file }}' --stats --partial {{ barman_restore_source_ssh_host }}:{{ hostvars[barman_restore_source_host]['barman_restore_ordered_dump'] }} {{ odoo_db_restore_dump }}"
+  async: 1800 # wait for completion 30min
+  poll: 15 # poll for completion every 15s
+  become: yes
+  tags: pull_dump
+#   check mode and async cannot be used on same task
+  when:
+   - not ansible_check_mode
+  delegate_facts: yes
+  delegate_to: "{{ odoo_db_ansible_host }}"

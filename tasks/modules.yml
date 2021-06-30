@@ -11,10 +11,13 @@
     restarted: no
     # Default, only if definition changed
     recreate: smart
-    timeout: 600
+    timeout: 60
     state: present
     remove_orphans: yes
     project_src: "{{ odoo_project_path }}"
+  environment:
+    - COMPOSE_HTTP_TIMEOUT=600
+    - DOCKER_CLIENT_TIMEOUT=600
   become: yes
   tags:
     - odoo_modules
@@ -28,9 +31,9 @@
   with_items: odoo_init_modules
   become: yes
   async: 3600 # wait 1h then kill it
-  poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s 
+  poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s
   shell:
-    cmd: "docker-compose exec -T odoo /opt/odoo/odoo-bin --stop-after-init --init {{ odoo_init_modules|join(',') }} --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/init_{{ odoo_init_modules|join('-') }}_{{ odoo_module_logs_date }}.log 2>&1;"
+    cmd: "docker-compose run --rm odoo /opt/odoo/odoo-bin --stop-after-init --init {{ odoo_init_modules|join(',') }} --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/init_{{ odoo_init_modules|join('-') }}_{{ odoo_module_logs_date }}.log 2>&1;"
     chdir: "{{ odoo_project_path }}"
   register: odoo_modules_init_list_result
   notify: Restart Odoo
@@ -44,7 +47,7 @@
   async: 3600 # wait 1h then kill it
   poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s
   shell:
-    cmd: "docker-compose exec -T odoo /opt/odoo/odoo-bin --stop-after-init --update {{ odoo_update_modules|join(',') }} --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/update_{{ odoo_update_modules|join('-') }}_{{ odoo_module_logs_date }}.log 2>&1;"
+    cmd: "docker-compose run --rm odoo /opt/odoo/odoo-bin --stop-after-init --update {{ odoo_update_modules|join(',') }} --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/update_{{ odoo_update_modules|join('-') }}_{{ odoo_module_logs_date }}.log 2>&1;"
     chdir: "{{ odoo_project_path }}"
   when: odoo_update_modules | length > 0
   register: odoo_modules_update_list_result
@@ -53,31 +56,15 @@
   become: yes
   notify: Restart Odoo
   tags:
-  - odoo_modules
-  - odoo_update
-
-- name: Update all Odoo modules if set
-  async: 3600 # wait 1h then kill it
-  poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s 
-  shell:
-    cmd: "docker-compose exec -T odoo /opt/odoo/odoo-bin --stop-after-init --update all --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 > /var/log/odoo_modules/update_all_{{ odoo_module_logs_date }}.log 2>&1;"
-    chdir: "{{ odoo_project_path }}"
-  # Fail later
-  ignore_errors: yes
-  when: odoo_update_all_modules
-  notify: Restart Odoo
-  register: odoo_modules_update_all_result
-  become: yes
-  tags:
-  - odoo_modules
-  - odoo_update_all
+    - odoo_modules
+    - odoo_update
 
 - name: "Auto-update modified Odoo modules (requires OCA's module_auto_update: https://github.com/OCA/server-tools and a first `--update all`)"
   shell:
-    cmd: docker-compose exec -T odoo bash -c "/opt/odoo/odoo-bin shell --stop-after-init --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 <<< \"env['ir.module.module'].upgrade_changed_checksum()\" " > /var/log/odoo_modules/update_auto_{{ odoo_module_logs_date }}.log 2>&1;
+    cmd: export COMPOSE_HTTP_TIMEOUT=600 DOCKER_CLIENT_TIMEOUT=600 && docker-compose run --rm odoo bash -c "/opt/odoo/odoo-bin shell --stop-after-init --config=/etc/odoo/odoo.conf --log-level=debug --no-http --workers=0 --max-cron-threads=0 <<< \"env['ir.module.module'].upgrade_changed_checksum()\" " > /var/log/odoo_modules/update_auto_{{ odoo_module_logs_date }}.log 2>&1;
     chdir: "{{ odoo_project_path }}"
   async: 3600 # wait 1h then kill it
-  poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s 
+  poll: 5 # verifier si l'update des modules s'est terminée toutes les 5s
   # Fail later
   ignore_errors: yes
   when: "odoo_update_auto_modules | bool"
@@ -85,10 +72,9 @@
   become: yes
   notify: Restart Odoo
   tags:
-  - odoo_modules
-  - odoo_update
-  - odoo_update_auto
-
+    - odoo_modules
+    - odoo_update
+    - odoo_update_auto
 
 - name: Fail if some init/update failed
   debug:
@@ -96,7 +82,6 @@
   failed_when: "item.rc != 0"
   with_items:
     - "{{ odoo_modules_init_list_result }}"
-    - "{{ odoo_modules_update_all_result }}"
     - "{{ odoo_modules_update_list_result }}"
     - "{{ odoo_modules_auto_update_result }}"
   when:

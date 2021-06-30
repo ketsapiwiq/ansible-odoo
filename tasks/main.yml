@@ -64,7 +64,7 @@
 - name: Print Coopaname addons code diffs since last git commit
   debug:
     msg: "{{ odoo_coopaname_addons_git.stdout_lines }}"
-  ignore_errors: "{{ ansible_check_mode }}"
+  ignore_errors: yes
 
 # Stash changes on test_compta then reapply them on top
 - name: Stash changes when required in Coopaname addons code
@@ -72,7 +72,7 @@
     cmd: 'git stash push --all --message "Automatic stash by Ansible"'
     chdir: "{{ odoo_coopaname_addons_path }}"
   when: odoo_coopaname_addons_stash
-  ignore_errors: "{{ ansible_check_mode }}"
+  ignore_errors: yes
 
 - name: Ensure Odoo addons for Coopaname code present and up to date
   git:
@@ -94,6 +94,7 @@
     cmd: git stash pop
     chdir: "{{ odoo_coopaname_addons_path }}"
   when: odoo_coopaname_addons_stash
+  ignore_errors: yes
 
 - name: Ensure Odoo addons for CAE code present and up to date
   git:
@@ -109,13 +110,14 @@
   when: odoo_addons_cae_enabled is defined and odoo_addons_cae_enabled == True
   notify: Restart Odoo
 
-- name: "Import Niboo addons tasks: copy from existing install"
-  import_tasks: niboo.yml
+- name: "Import extra addons"
+  import_tasks: extra_addons.yml
   become: yes
   tags:
     - odoo_install
     - odoo_addons
-    - odoo_niboo_addons
+    - odoo_extra_addons
+  when: odoo_extra_addons
 
 - name: Ensure Odoo code belongs to odoo user and group
   file:
@@ -172,6 +174,8 @@
     name: "{{ odoo_registry_image }}:{{ odoo_registry_image_version }}"
     source: pull
     force_source: true
+  # async: 600 # wait for completion 10min
+
   become: yes
   tags:
     - odoo_install
@@ -179,12 +183,26 @@
 
 # DB
 
-- name: Import database tasks
-  import_tasks: database/main.yml
-  become: yes
+- name: Import odoo restore database tasks
+  import_tasks: db_restore/main.yml
+  when:
+  - odoo_db_restore == True
   tags:
     - odoo_install
-    - odoo_db_copy_restore
+    - odoo_db
+
+- name: Test connection to Postgres from Odoo host
+  postgresql_query:
+    query: SELECT version()
+    db: "postgres"
+    login_host: "{{ odoo_db_host }}"
+    login_user: "{{ odoo_db_user }}"
+    port: "{{ odoo_db_port }}"
+    login_password: "{{ secret_odoo_db_password }}"
+  become: yes
+  no_log: yes
+  # delegate_facts: yes
+  # delegate_to: "{{ odoo_db_ansible_host }}"
 
 # FILESTORE
 
@@ -267,6 +285,9 @@
     state: present
     remove_orphans: yes
     project_src: "{{ odoo_project_path }}"
+  environment:
+  - COMPOSE_HTTP_TIMEOUT=600
+  - DOCKER_CLIENT_TIMEOUT=600
   become: yes
   tags:
     - odoo_start
@@ -283,3 +304,4 @@
     # this would also remove any unused image
     # images_filters:
     #   dangling: false
+  tags: docker_prune

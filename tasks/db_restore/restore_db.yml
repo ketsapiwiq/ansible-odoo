@@ -1,0 +1,23 @@
+# TODO: If bleeding edge latest db is not required, just fetch the file called latest.pgc on db-backups
+# TODO: Checks on db even when not restoring
+# TODO: Add lockfile on db ops to keep container from being started meanwhile
+
+- include_vars: ../host_vars/{{ odoo_db_ansible_host }}.yml
+
+- name: Generate a db dump
+  import_tasks:
+    file: gen_dump.yml
+  when:
+    - odoo_db_restore | bool  == True
+    - odoo_db_restore_pullonly | bool != True
+
+- name: Pull dump
+  import_tasks:
+    file: pull_dump.yml
+
+- name: Import a db dump in a postgres server
+  import_tasks: import_dump.yml
+
+- name: Restore a copy of the db from a previous duplicated DB
+  import_tasks: switch_db.yml
+  become: yes

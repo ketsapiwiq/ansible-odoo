@@ -1,50 +1,47 @@
-# - name: "Commit current files in git filestore archive folder {{ odoo_archived_filestore_path }}"
-#   command: "git add .; git commit -m 'Backup by Ansible playbook' ;"
-  # when: ansible_group == 'prod'
+- name: "Create user rsync on {{ ansible_host }}"
+  user:
+    name: rsync
+    create_home: true
+    system: yes
+    generate_ssh_key: yes
+    ssh_key_type: ed25519
+  register: rsync_user
 
-# TODO: Copy current files before sync and tag them with {{ ansible_date_time.epoch }}
+# - name: "Create rsync user in {{ odoo_extra_addons_source_host }}"
+#   user:
+#       name: rsync
+#   delegate_to: "{{ odoo_extra_addons_source_host }}"
 
-# - name: "Copy current files at {{ odoo_filestore_most_recent_path }} to new filestore at {{ odoo_filestore_dest_path }}/{{ odoo_db_name }}"
-#   copy:
-#       src: "{{ odoo_filestore_most_recent_path }}/{{ odoo_db_name }}"
-#       dest: "{{ odoo_filestore_dest_ssh_host.ansible_host }}:{{ odoo_filestore_dest_path }}/{{ hostvars[odoo_filestore_dest_host]['odoo_filestore_path']}}"
-#       delegate_to: odoo_filestore_most_recent_host
-#   when:
-#   - odoo_filestore_restore
-#   - odoo_filestore_most_recent_host != odoo_filestore_dest_ssh_host
-
-# TODO: securely streamline need for ssh access
-
-- name: "Copy SSH public key of {{ odoo_filestore_most_recent_host }}"
-  delegate_to: "{{ odoo_filestore_most_recent_host }}"
-  slurp:
-      src: /root/.ssh/id_ed25519.pub # required. The file on the remote system to fetch. This I(must) be a file, not a directory.
-  register: odoo_filestore_most_recent_host_publickey
-
-- name: Authorize key from {{ odoo_filestore_most_recent_host }} to current Odoo instance {{ ansible_host }}"
+- name: Authorize key from current Odoo instance {{ ansible_host }} to {{ odoo_filestore_src_host }}"
   authorized_key:
-      user: root
-      key: "{{ odoo_filestore_most_recent_host_publickey.content | b64decode }}"
+    user: root
+    # user: rsync
+    key: "{{ rsync_user.ssh_public_key }}"
+  delegate_to: "{{ odoo_filestore_src_host }}"
 
-
-- name: "Ensure {{ odoo_filestore_dest_path }} exists"
+- name: "Ensure {{ odoo_filestore_dest_path }} and {{ odoo_filestore_dest_path }}/{{ odoo_db_name }} exist"
   file:
     state: directory
-    path: "{{ odoo_filestore_dest_path }}"
+    path: "{{ item }}"
     owner: odoo
     group: odoo
+  loop:
+    - odoo_filestore_dest_path
+    - "{{ odoo_filestore_dest_path }}/{{ odoo_db_name }}"
   notify: Restart Odoo
 
-- name: "Copy current files at {{ odoo_filestore_most_recent_path }} to new filestore at {{ odoo_filestore_dest_path }}"
-# Trailing slash in source is important to avoid a dir to be created inside
-  command: "rsync -a --delete --partial --stats -e 'ssh -o StrictHostKeyChecking=no' {{ odoo_filestore_most_recent_path }}/coo_production/ {{ odoo_filestore_dest_ssh_host }}:{{ odoo_filestore_dest_path }}/{{ odoo_db_name }}"
+- name: "Copy current files at {{ odoo_filestore_src_path }} to new filestore at {{ odoo_filestore_dest_path }}"
+  # Trailing slash in source is important to avoid a dir to be created inside
+  # rsync -a --delete --partial --stats -e ssh -o StrictHostKeyChecking=no root@135.181.146.51:/var/filestore_archive/coo_production/ /odoo_ci/data_dir/filestore/odoo_demo
+  command: "rsync -a --delete --exclude '.git' --partial --stats -e 'ssh -o StrictHostKeyChecking=no -i {{ rsync_user.ssh_key_file }}' root@{{odoo_filestore_src_host}}:{{ odoo_filestore_src_path }}/{{ odoo_filestore_src_db }}/ {{ odoo_filestore_dest_path }}/{{ odoo_db_name }}"
   async: 1800 # wait for completion 30min
   poll: 15 # poll for completion every 15s
+  become: yes
+  # become_user: rsync
+  # become_user: filestore_backup
   register: filestore_rsync_output
-  # become: yes
-  delegate_to: "{{ odoo_filestore_most_recent_host }}"
   when:
-    - odoo_filestore_restore is defined and odoo_filestore_restore == True
+    - odoo_filestore_restore is defined and odoo_filestore_restore | bool == True
     - not ansible_check_mode
   notify: Restart Odoo
 
@@ -53,8 +50,8 @@
     content: "{{ filestore_rsync_output.stdout }}"
     dest: "/var/log/filestore_rsync_{{ ansible_date_time.epoch }}"
   when:
-  - filestore_rsync_output is defined and filestore_rsync_output.skipped is not defined
-  - not ansible_check_mode
+    - filestore_rsync_output is defined and filestore_rsync_output.skipped is not defined
+    - not ansible_check_mode
 
 - name: Ensure Odoo filestore belongs to odoo user and group
   file:
@@ -70,14 +67,8 @@
     path: "{{ odoo_filestore_dest_path }}/{{ odoo_db_name }}"
   register: odoo_filestore_check
   changed_when: false
-
-- name: Ensure Odoo filestore is named according to db 2/2
-  ansible.builtin.debug:
-    msg: "Filestore exists and is named accordingly"
   when:
     - odoo_filestore_check is defined
     - not ansible_check_mode
   failed_when: not odoo_filestore_check.stat.exists or (odoo_filestore_check.stat.isdir is defined and not odoo_filestore_check.stat.isdir)
-  changed_when: false
-
 # TODO: Ensure filestore is OK

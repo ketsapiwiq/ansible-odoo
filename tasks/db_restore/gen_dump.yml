@@ -1,0 +1,9 @@
+# Méthode de Point-in-time recovery:  on demande au rôle barman_restore de nous fournir le dump
+- name: Generate a barman dump
+  include_role:
+    name: barman_export_db
+    apply:
+      delegate_facts: yes
+      delegate_to: "{{ barman_restore_source_host }}"
+      vars:
+      - barman_restore_target_time: "{{ odoo_db_restore_date }}"
