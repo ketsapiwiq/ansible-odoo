@@ -1,4 +1,3 @@
-
 - name: Recreate Odoo
   docker_compose:
     recreate: always
@@ -8,10 +7,7 @@
     project_src: "{{ odoo_project_path }}"
     remove_orphans: yes
   become: yes
-  environment:
-  - COMPOSE_HTTP_TIMEOUT=600
-  - DOCKER_CLIENT_TIMEOUT=600
-  
+
 - name: Restart Odoo
   docker_compose:
     restarted: yes
@@ -22,7 +18,4 @@
     state: present
     project_src: "{{ odoo_project_path }}"
     remove_orphans: yes
-  environment:
-  - COMPOSE_HTTP_TIMEOUT=600
-  - DOCKER_CLIENT_TIMEOUT=600
   become: yes
