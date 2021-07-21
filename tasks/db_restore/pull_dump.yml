@@ -1,5 +1,4 @@
 ---
-
 - name: Install rsync
   apt:
     name: rsync
@@ -29,15 +28,24 @@
     key: "{{ barman_restore_target_user.ssh_public_key }}"
   delegate_to: "{{ barman_restore_source_host }}"
 
+- name: Set name for wanted backup
+  set_fact:
+    barman_restore_ordered_dump: "{{ hostvars[barman_restore_source_host]['barman_restore_latest_dump'] }}"
+  when: odoo_db_restore_pullonly is defined and odoo_db_restore_pullonly | bool == true
 
-- name: "Pull database dump from {{ barman_restore_source_ssh_host }}:{{ hostvars[barman_restore_source_host]['barman_restore_ordered_dump'] }} to {{ odoo_db_restore_dump }}"
-  command: "rsync -a -L -e 'ssh -o StrictHostKeyChecking=no -i {{ barman_restore_target_user.ssh_key_file }}' --stats --partial {{ barman_restore_source_ssh_host }}:{{ hostvars[barman_restore_source_host]['barman_restore_ordered_dump'] }} {{ odoo_db_restore_dump }}"
+- name: Set name for wanted backup
+  set_fact:
+    barman_restore_ordered_dump: "{{ hostvars[barman_restore_source_host]['barman_restore_ordered_dump'] }}"
+  when: odoo_db_restore_pullonly is not defined or odoo_db_restore_pullonly | bool == false
+
+- name: "Pull database dump from {{ barman_restore_source_ssh_host }}:{{ barman_restore_ordered_dump }} to {{ odoo_db_restore_dump }}"
+  command: "rsync -a -L -e 'ssh -o StrictHostKeyChecking=no -i {{ barman_restore_target_user.ssh_key_file }}' --stats --partial {{ barman_restore_source_ssh_host }}:{{ barman_restore_ordered_dump }} {{ odoo_db_restore_dump }}"
   async: 1800 # wait for completion 30min
   poll: 15 # poll for completion every 15s
   become: yes
   tags: pull_dump
-#   check mode and async cannot be used on same task
+  #   check mode and async cannot be used on same task
   when:
-   - not ansible_check_mode
+    - not ansible_check_mode
   delegate_facts: yes
   delegate_to: "{{ odoo_db_ansible_host }}"
