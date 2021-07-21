@@ -27,7 +27,6 @@
     - odoo_user
     - odoo_install
 
-
 # CODE
 
 - name: Ensure Coopaname Odoo directories are present
@@ -45,7 +44,6 @@
     - odoo_install
     - odoo_download_template
   notify: Restart Odoo
-
 
 # ADDONS
 
@@ -84,7 +82,7 @@
     clone: yes
     # TODO: Variabilize force:yes or no and can_fail
     force: no
-#   ignore_errors: yes
+  #   ignore_errors: yes
   become: yes
   tags: odoo_install,odoo_git,odoo_install_coopaname_addons
   notify: Restart Odoo
@@ -132,7 +130,6 @@
     - odoo_install
   notify: Restart Odoo
 
-
 # CONFIG
 
 - name: Configure odoo docker-compose installation
@@ -149,14 +146,13 @@
 - name: Replace vars in Odoo config template
   template:
     src: odoo.conf.j2
-    dest: "{{ odoo_project_path }}/config/odoo.conf" 
+    dest: "{{ odoo_project_path }}/config/odoo.conf"
   become: yes
   no_log: true
   notify: Restart Odoo
   tags:
     - odoo_config
     - odoo_install
-
 
 # IMAGE
 
@@ -169,7 +165,7 @@
   tags:
     - odoo_install
 
-- name: Pull latest docker image from Container registry
+- name: "Pull {{ odoo_registry_image }}:{{ odoo_registry_image_version }} docker image from Container registry"
   docker_image:
     name: "{{ odoo_registry_image }}:{{ odoo_registry_image_version }}"
     source: pull
@@ -186,10 +182,14 @@
 - name: Import odoo restore database tasks
   import_tasks: db_restore/main.yml
   when:
-  - odoo_db_restore == True
+    - odoo_db_restore == True
   tags:
     - odoo_install
     - odoo_db
+
+- name: Install postgres Python module psycopg2 on Odoo host
+  pip:
+    name: psycopg2-binary
 
 - name: Test connection to Postgres from Odoo host
   postgresql_query:
@@ -201,8 +201,6 @@
     login_password: "{{ secret_odoo_db_password }}"
   become: yes
   no_log: yes
-  # delegate_facts: yes
-  # delegate_to: "{{ odoo_db_ansible_host }}"
 
 # FILESTORE
 
@@ -224,7 +222,6 @@
     - odoo_change_admin_password
     - odoo_remove_mailservers
     - odoo_random_uuid
-
 
 # SESSIONS
 
@@ -249,7 +246,6 @@
   when: odoo_purge_sessions is defined and odoo_purge_sessions == True
   tags: odoo_purge_sessions
 
-
 # MODULES
 
 - name: Import modules tasks
@@ -258,7 +254,6 @@
   tags:
     - odoo_install
     - odoo_modules
-
 
 # TODO: Ajout de healthcheck et rollback si pb ?
 
@@ -285,9 +280,6 @@
     state: present
     remove_orphans: yes
     project_src: "{{ odoo_project_path }}"
-  environment:
-  - COMPOSE_HTTP_TIMEOUT=600
-  - DOCKER_CLIENT_TIMEOUT=600
   become: yes
   tags:
     - odoo_start
