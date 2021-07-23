@@ -66,6 +66,7 @@ odoo_env_repo_address: gitlab.com/coopaname/odoo_env.git
 odoo_registry_url: registry.gitlab.com/coopaname
 odoo_registry_image: "{{ odoo_registry_url }}/odoo_env"
 odoo_registry_image_version: "latest"
+odoo_registry_image_pull: true
 
 # Filestore restoring
 odoo_filestore_restore: no
